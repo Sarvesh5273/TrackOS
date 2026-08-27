@@ -327,7 +327,7 @@ export class GitHubSyncService {
   // ============================================
   // Classification Helpers
   // ============================================
-  private classifyCommitMessage(message: string): {
+  public classifyCommitMessage(message: string): {
     category: ContributionCategory;
     workType: WorkType;
     conventionalType?: string;
@@ -343,43 +343,43 @@ export class GitHubSyncService {
           return { category: "development", workType: "created", conventionalType: "feat" };
         case "fix":
         case "test":
-        case "ci":
           return { category: "quality_testing", workType: "created", conventionalType: type };
         case "docs":
-          return { category: "documentation_research", workType: "created", conventionalType: "docs" };
+          return { category: "documentation_research", workType: "original", conventionalType: "docs" };
         case "style":
           return { category: "design", workType: "created", conventionalType: "style" };
         case "refactor":
         case "perf":
-          return { category: "development", workType: "review", conventionalType: type };
+          return { category: "development", workType: "created", conventionalType: type };
         case "chore":
         case "build":
-        case "revert":
-          return { category: "coordination_review", workType: "coordination", conventionalType: type };
+        case "ci":
+          return { category: "development", workType: "coordination", conventionalType: type };
       }
     }
 
-    // 2. Keyword heuristic fallback
-    if (/\b(bug|fix|patch|hotfix|test|spec|assert|coverage|qa)\b/.test(lower)) {
-      return { category: "quality_testing", workType: "created" };
-    }
-    if (/\b(doc|docs|readme|wiki|comment|guide|spec|rfc|manual)\b/.test(lower)) {
-      return { category: "documentation_research", workType: "created" };
-    }
-    if (/\b(ui|ux|design|css|style|theme|color|svg|icon|font|layout|tailwind)\b/.test(lower)) {
+    // 2. Keyword-based heuristic classification
+    if (/\b(design|ui|ux|css|theme|layout|component|view|screen|figma)\b/.test(lower)) {
       return { category: "design", workType: "created" };
     }
-    if (/\b(merge|bump|release|version|config|chore|deps|deploy|pipeline)\b/.test(lower)) {
+    if (/\b(test|spec|assert|coverage|qa|bug|fix|patch|hotfix|resolve)\b/.test(lower)) {
+      return { category: "quality_testing", workType: "created" };
+    }
+    if (/\b(doc|docs|readme|guide|comment|rfc|spec|architecture)\b/.test(lower)) {
+      return { category: "documentation_research", workType: "original" };
+    }
+    if (/\b(slide|pitch|presentation|demo|loom|video|deliverable)\b/.test(lower)) {
+      return { category: "presentation_delivery", workType: "presentation" };
+    }
+    if (/\b(review|merge|coordination|assign|sync|meeting)\b/.test(lower)) {
       return { category: "coordination_review", workType: "coordination" };
     }
-    if (/\b(review|refactor|clean|optimize|lint)\b/.test(lower)) {
-      return { category: "coordination_review", workType: "review" };
-    }
 
+    // Default to development
     return { category: "development", workType: "created" };
   }
 
-  private categorizeIssue(labels: unknown[], title = ""): ContributionCategory {
+  public categorizeIssue(labels: unknown[], title = ""): ContributionCategory {
     const labelNames = labels.map((l) => {
       if (typeof l === "string") return l.toLowerCase();
       if (typeof l === "object" && l && "name" in l) return String((l as { name: string }).name).toLowerCase();
@@ -406,7 +406,7 @@ export class GitHubSyncService {
     return "development";
   }
 
-  private extractCoAuthors(message: string): string[] {
+  public extractCoAuthors(message: string): string[] {
     const coAuthors: string[] = [];
     const lines = message.split("\n");
     for (const line of lines) {

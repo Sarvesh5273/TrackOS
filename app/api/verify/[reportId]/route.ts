@@ -76,7 +76,14 @@ export async function GET(
       })
     );
 
-    // 4. Generate deterministic verification signature
+    // 4. Fetch evidence items
+    const { data: evidence } = await admin
+      .from("evidence_items")
+      .select("*")
+      .eq("workspace_id", workspace.id)
+      .order("timestamp", { ascending: false });
+
+    // 5. Generate deterministic verification signature
     const payloadToSign = `${report.id}:${workspace.id}:${report.published_at || report.created_at}:${report.version}:${JSON.stringify(report.member_results)}`;
     const verificationHash = createHash("sha256").update(payloadToSign).digest("hex");
 
@@ -84,6 +91,7 @@ export async function GET(
       report,
       workspace,
       members: enrichedMembers,
+      evidence: evidence || [],
       verification: {
         hash: verificationHash,
         verifiedAt: report.published_at || report.created_at,

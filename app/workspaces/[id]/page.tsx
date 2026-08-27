@@ -46,9 +46,20 @@ import {
   GitCommit,
   GitPullRequest,
   CheckCheck,
+  Trophy,
+  Scale,
+  BookOpen,
+  Send,
+  Webhook,
 } from "lucide-react";
 import { formatDateTime, formatPercent } from "@/lib/utils";
 import TeamHealthRadar from "@/components/TeamHealthRadar";
+import ChangelogModal from "@/components/ChangelogModal";
+import DisputeRoomModal from "@/components/DisputeRoomModal";
+import HackathonDossierModal from "@/components/HackathonDossierModal";
+import { calculateContributorBadges } from "@/lib/gamification/badges";
+import { unfurlArtifactUrl, type UnfurledArtifact } from "@/lib/integrations/unfurl";
+import { PlatformIcon } from "@/components/PlatformIcons";
 import type { CategoryConfig, ContributionCategory, Integration, EvidenceItem, Report, Membership } from "@/types";
 
 interface Workspace {
@@ -135,6 +146,12 @@ export default function WorkspaceDetailPage() {
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showDeleteWorkspaceModal, setShowDeleteWorkspaceModal] = useState(false);
+  const [showChangelogModal, setShowChangelogModal] = useState(false);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [showDossierModal, setShowDossierModal] = useState(false);
+  const [showWebhookModal, setShowWebhookModal] = useState(false);
+  const [copiedWebhookUrl, setCopiedWebhookUrl] = useState(false);
+  const [detectedArtifact, setDetectedArtifact] = useState<UnfurledArtifact | null>(null);
 
   const [inviteRole, setInviteRole] = useState("member");
   const [generatedInvite, setGeneratedInvite] = useState("");
@@ -641,24 +658,51 @@ export default function WorkspaceDetailPage() {
               <p className="text-xs text-muted capitalize">{workspace.status.replace("_", " ")}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setShowChangelogModal(true)}
+              className="btn-outline inline-flex items-center gap-1.5 text-xs py-1.5 px-3"
+              title="Generate AI Sprint & Release Notes"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-coral-500" />
+              <span className="hidden md:inline">Changelog</span>
+            </button>
+
+            <button
+              onClick={() => setShowDossierModal(true)}
+              className="btn-outline inline-flex items-center gap-1.5 text-xs py-1.5 px-3 text-amber-700 border-amber-200 hover:bg-amber-50"
+              title="Export Hackathon Judge & Grading Dossier"
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-600" />
+              <span className="hidden md:inline">Judge Dossier</span>
+            </button>
+
+            <button
+              onClick={() => setShowDisputeModal(true)}
+              className="btn-outline inline-flex items-center gap-1.5 text-xs py-1.5 px-3"
+              title="Dispute & Split-Credit Room"
+            >
+              <Scale className="w-3.5 h-3.5 text-purple-600" />
+              <span className="hidden md:inline">Splits</span>
+            </button>
+
             {integration && (
               <button
                 onClick={handleSync}
                 disabled={syncing}
-                className="btn-outline inline-flex items-center gap-2 text-sm disabled:opacity-50"
+                className="btn-outline inline-flex items-center gap-1.5 text-xs py-1.5 px-3 disabled:opacity-50"
               >
-                <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin text-coral-500" : ""}`} />
-                {syncing ? "Syncing..." : "Sync GitHub"}
+                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin text-coral-500" : ""}`} />
+                <span className="hidden sm:inline">{syncing ? "Syncing..." : "Sync GitHub"}</span>
               </button>
             )}
             <button
               onClick={handleGenerateReport}
               disabled={actionLoading}
-              className="btn-coral inline-flex items-center gap-2 text-sm disabled:opacity-50"
+              className="btn-coral inline-flex items-center gap-1.5 text-xs py-1.5 px-3 disabled:opacity-50"
             >
-              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-              Generate Report
+              {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+              <span>Report</span>
             </button>
 
             {/* Profile Button */}
@@ -790,6 +834,11 @@ export default function WorkspaceDetailPage() {
                       const meta = member.user?.raw_user_meta_data || {};
                       const displayName = meta.name || meta.user_name || member.user?.email || (member.role === "leader" ? "Workspace Leader" : "Team Member");
                       const avatarUrl = meta.avatar_url;
+                      const memberBadges = calculateContributorBadges(
+                        meta.user_name || member.user_id,
+                        member.user?.email,
+                        evidence
+                      );
                       const isMe = currentUserId === member.user_id;
 
                       return (
@@ -815,6 +864,20 @@ export default function WorkspaceDetailPage() {
                             <p className="text-xs text-muted truncate">
                               {meta.user_name ? `@${meta.user_name}` : member.user?.email || ""}
                             </p>
+                            {memberBadges.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                                {memberBadges.map((b) => (
+                                  <span
+                                    key={b.id}
+                                    className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${b.bgColor} ${b.color} ${b.borderColor} flex items-center gap-1`}
+                                    title={`${b.name}: ${b.description}`}
+                                  >
+                                    <span>{b.icon}</span>
+                                    <span>{b.name}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full capitalize ${
                             member.role === "leader"
@@ -925,7 +988,7 @@ export default function WorkspaceDetailPage() {
                       {integration.status}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <button
                       onClick={handleSync}
                       disabled={syncing}
@@ -933,6 +996,14 @@ export default function WorkspaceDetailPage() {
                     >
                       <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
                       {syncing ? "Syncing Commits & PRs..." : "Sync Now"}
+                    </button>
+                    <button
+                      onClick={() => setShowWebhookModal(true)}
+                      className="btn-outline inline-flex items-center gap-2 text-sm"
+                      title="Setup real-time GitHub Webhook"
+                    >
+                      <Webhook className="w-4 h-4 text-coral-500" />
+                      Real-Time Webhook
                     </button>
                     <button
                       onClick={() => setShowDisconnectModal(true)}
@@ -1181,6 +1252,12 @@ export default function WorkspaceDetailPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {item.source_url?.includes("figma.com") && (
+                            <PlatformIcon platform="figma" className="w-4 h-4 flex-shrink-0" />
+                          )}
+                          {item.source_url?.includes("loom.com") && (
+                            <PlatformIcon platform="loom" className="w-4 h-4 flex-shrink-0" />
+                          )}
                           <p className="text-sm font-medium truncate text-foreground">{item.summary}</p>
                           {item.source_url && (
                             <a
@@ -1503,10 +1580,30 @@ export default function WorkspaceDetailPage() {
                   <input
                     type="url"
                     value={evidenceForm.artifact_url}
-                    onChange={(e) => setEvidenceForm((prev) => ({ ...prev, artifact_url: e.target.value }))}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const unfurled = unfurlArtifactUrl(val);
+                      setDetectedArtifact(unfurled);
+                      setEvidenceForm((prev) => ({
+                        ...prev,
+                        artifact_url: val,
+                        category: unfurled ? unfurled.defaultCategory : prev.category,
+                        title: !prev.title && unfurled ? unfurled.suggestedTitle : prev.title,
+                        work_type: unfurled ? unfurled.suggestedWorkType : prev.work_type,
+                      }));
+                    }}
                     placeholder="https://figma.com/... or https://loom.com/..."
                     className="input-field w-full text-sm"
                   />
+                  {detectedArtifact && (
+                    <div className={`mt-2 p-2.5 rounded-xl border text-xs flex items-center gap-2.5 ${detectedArtifact.badgeColor}`}>
+                      <PlatformIcon platform={detectedArtifact.platform} className="w-5 h-5 flex-shrink-0" />
+                      <div>
+                        <span className="font-bold block">{detectedArtifact.label} detected!</span>
+                        <span className="opacity-90">Auto-configured category to {detectedArtifact.defaultCategory.replace("_", " ")}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
@@ -1824,6 +1921,118 @@ export default function WorkspaceDetailPage() {
                 {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 Yes, Delete Workspace
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Changelog Modal */}
+      {showChangelogModal && (
+        <ChangelogModal
+          workspaceId={workspace.id}
+          workspaceName={workspace.name}
+          onClose={() => setShowChangelogModal(false)}
+        />
+      )}
+
+      {/* Hackathon Judge & Grading Dossier Modal */}
+      {showDossierModal && (
+        <HackathonDossierModal
+          workspace={workspace}
+          members={members}
+          evidence={evidence}
+          reports={reports}
+          onClose={() => setShowDossierModal(false)}
+        />
+      )}
+
+      {/* Dispute & Split-Credit Room Modal */}
+      {showDisputeModal && (
+        <DisputeRoomModal
+          workspaceId={workspace.id}
+          evidenceItems={evidence}
+          isLeader={isLeader}
+          onClose={() => setShowDisputeModal(false)}
+        />
+      )}
+
+      {/* Real-Time GitHub Webhook Setup Modal */}
+      {showWebhookModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          onClick={() => setShowWebhookModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl border border-gray-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-coral-50 text-coral-600 flex items-center justify-center shadow-sm">
+                  <Webhook className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    GitHub Real-Time Webhook
+                  </h3>
+                  <p className="text-xs text-muted">
+                    Auto-sync every push, PR, and review with 0 manual clicks.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowWebhookModal(false)}
+                className="text-muted hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">
+                  Payload URL
+                </label>
+                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-200 font-mono text-xs text-gray-800">
+                  <span className="flex-1 truncate">
+                    {typeof window !== "undefined"
+                      ? `${window.location.origin}/api/webhooks/github`
+                      : "https://your-domain.com/api/webhooks/github"}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/api/webhooks/github`;
+                      navigator.clipboard.writeText(url);
+                      setCopiedWebhookUrl(true);
+                      setTimeout(() => setCopiedWebhookUrl(false), 2000);
+                    }}
+                    className="btn-coral text-xs py-1 px-2.5 flex-shrink-0"
+                  >
+                    {copiedWebhookUrl ? "Copied!" : "Copy URL"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-100 text-xs text-blue-900 space-y-2">
+                <p className="font-bold">Setup in 30 seconds on GitHub:</p>
+                <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                  <li>Go to your GitHub repo &rarr; <strong>Settings</strong> &rarr; <strong>Webhooks</strong>.</li>
+                  <li>Click <strong>Add webhook</strong> and paste the <strong>Payload URL</strong> above.</li>
+                  <li>Set Content type to <strong>application/json</strong>.</li>
+                  <li>Under events, select <strong>&ldquo;Send me everything&rdquo;</strong> (or Pushes &amp; Pull requests).</li>
+                  <li>Click <strong>Add webhook</strong> &mdash; you&rsquo;re ready!</li>
+                </ol>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowWebhookModal(false)}
+                  className="btn-coral text-sm"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>

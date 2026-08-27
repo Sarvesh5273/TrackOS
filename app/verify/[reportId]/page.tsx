@@ -23,6 +23,7 @@ import {
   Zap,
 } from "lucide-react";
 import { formatPercent, formatDateTime } from "@/lib/utils";
+import { calculateContributorBadges } from "@/lib/gamification/badges";
 
 export default function PublicVerifyReportPage() {
   const { reportId } = useParams();
@@ -249,6 +250,11 @@ export default function PublicVerifyReportPage() {
                 const memberData = members.find((x: any) => x.user_id === m.userId);
                 const avatar = memberData?.user?.avatarUrl;
                 const username = memberData?.user?.username;
+                const badges = calculateContributorBadges(
+                  username || m.userId,
+                  m.email,
+                  data.evidence || []
+                );
 
                 return (
                   <div
@@ -270,6 +276,20 @@ export default function PublicVerifyReportPage() {
                             <p className="text-xs text-muted truncate">
                               {username ? `@${username}` : m.email}
                             </p>
+                            {badges.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                                {badges.map((b) => (
+                                  <span
+                                    key={b.id}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${b.bgColor} ${b.color} ${b.borderColor} flex items-center gap-1`}
+                                    title={`${b.name}: ${b.description}`}
+                                  >
+                                    <span>{b.icon}</span>
+                                    <span>{b.name}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
 

@@ -70,13 +70,22 @@ export async function POST(
       );
     }
 
+    const safeDescription = description?.trim() || title || "Contribution deliverable";
+    const actorName =
+      user.user_metadata?.user_name ||
+      user.user_metadata?.preferred_username ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      user.email ||
+      "Contributor";
+
     const { data: manualEvidence, error: meError } = await supabase
       .from("manual_evidence")
       .insert({
         workspace_id: params.id,
         submitted_by: user.id,
         title,
-        description: description || null,
+        description: safeDescription,
         start_date: start_date || new Date().toISOString(),
         end_date: end_date || null,
         category,
@@ -101,10 +110,11 @@ export async function POST(
         source_url: artifact_url || null,
         event_type: "manual_evidence",
         actor_id: user.id,
-        actor_username: user.email || "manual",
+        actor_username: actorName,
+        actor_email: user.email,
         timestamp: start_date || new Date().toISOString(),
         summary: title,
-        description: description || null,
+        description: safeDescription,
         category,
         work_type,
         verification_state: "manual_submitted",
