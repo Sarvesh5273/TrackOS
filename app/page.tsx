@@ -139,48 +139,32 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Hero Section with Subdued Ambient Waves & High Contrast Text */}
-      <section className="relative z-10 px-6 pt-20 pb-20 max-w-7xl mx-auto text-center flex flex-col items-center">
-        {/* Subdued Chroma Waves WebGL Shader Background Texture */}
-        <div className="absolute inset-0 -top-16 -bottom-10 pointer-events-none overflow-hidden opacity-30 z-0">
-          <ChromaWaves
-            speed={0.2}
-            frequency={0.28}
-            distortion={1.1}
-            grain={0.03}
-            color1="#a1a1aa"
-            color2="#4c1d95"
-            color3="#000000"
-            opacity={0.35}
-            interactive={true}
-          />
-        </div>
-
+      {/* Hero Section: Minimal, Punchy & Short */}
+      <section className="relative z-10 px-6 pt-24 sm:pt-28 pb-16 max-w-5xl mx-auto text-center flex flex-col items-center">
         {/* Ambient Dark Gradient Veil for Maximum Readability */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.85)_0%,rgba(0,0,0,0.5)_60%,transparent_100%)] pointer-events-none z-[1]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.8)_0%,rgba(0,0,0,0.4)_60%,transparent_100%)] pointer-events-none z-[1]" />
 
         {/* Crisp Monochromatic Pill Badge */}
-        <div className="relative z-10 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-700 text-zinc-200 text-xs font-medium tracking-wide mb-8 shadow-md hover:border-zinc-500 transition-colors">
+        <div className="relative z-10 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs font-medium tracking-wide mb-8 shadow-sm hover:border-zinc-500 transition-colors">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>v1.0 · Tamper-Proof Proof-of-Work Engine</span>
-          <ChevronRight className="w-3 h-3 text-zinc-400" />
+          <span>v1.0 · Proof of Work OS</span>
+          <ChevronRight className="w-3 h-3 text-zinc-500" />
         </div>
 
-        {/* Hero Title with Deep Shadow for Crystal Clear Visibility */}
-        <h1 className="relative z-10 text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] max-w-5xl mb-6 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]">
-          Fair contribution tracking
+        {/* Hero Title: Punchy 2 lines */}
+        <h1 className="relative z-10 text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] max-w-4xl mb-6 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+          Fair contribution tracking.
           <br />
-          <span className="text-zinc-300">for high-velocity teams.</span>
+          <span className="text-zinc-400 font-medium">Ship with confidence.</span>
         </h1>
 
-        {/* Subtitle with High Contrast */}
-        <p className="relative z-10 text-base sm:text-lg text-zinc-200 max-w-2xl mb-10 leading-relaxed font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
-          Ingest GitHub commits, Figma designs, and manual deliverables into explainable scores. 
-          Generate cryptographic SHA-256 contribution certificates and AI changelogs with zero bias.
+        {/* 1-Line Clean Subtitle */}
+        <p className="relative z-10 text-base sm:text-lg text-zinc-300 max-w-xl mb-10 leading-relaxed font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+          Turn GitHub commits, Figma designs, and team deliverables into tamper-proof proof of work.
         </p>
 
         {/* Primary CTAs */}
-        <div className="relative z-10 flex flex-wrap items-center justify-center gap-4 mb-16">
+        <div className="relative z-10 flex flex-wrap items-center justify-center gap-4">
           <SpecularButton
             size="lg"
             radius={14}
@@ -200,54 +184,11 @@ export default function HomePage() {
 
           <Link
             href="/login"
-            className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-medium text-sm transition-all shadow-lg"
+            className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-medium text-sm transition-all shadow-md"
           >
             <Github className="w-4 h-4 text-zinc-300" />
             <span>Continue with GitHub</span>
           </Link>
-        </div>
-
-        {/* Monochromatic Live Proof Metrics Bar with High Contrast */}
-        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl w-full pt-6 border-t border-zinc-800 text-left bg-black/40 p-4 rounded-2xl">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 shadow">
-            <div className="w-8 h-8 rounded-lg bg-zinc-800 text-white flex items-center justify-center">
-              <Zap className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-white">Instant Sync</p>
-              <p className="text-[11px] text-zinc-400">GitHub Webhooks</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 shadow">
-            <div className="w-8 h-8 rounded-lg bg-zinc-800 text-white flex items-center justify-center">
-              <Scale className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-white">Multi-Role Model</p>
-              <p className="text-[11px] text-zinc-400">100% Normalized</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 shadow">
-            <div className="w-8 h-8 rounded-lg bg-zinc-800 text-emerald-400 flex items-center justify-center">
-              <Shield className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-white">SHA-256 Proof</p>
-              <p className="text-[11px] text-zinc-400">Public Certificates</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 shadow">
-            <div className="w-8 h-8 rounded-lg bg-zinc-800 text-white flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-white">AI Changelog</p>
-              <p className="text-[11px] text-zinc-400">Release Digests</p>
-            </div>
-          </div>
         </div>
       </section>
 
