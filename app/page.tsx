@@ -24,6 +24,7 @@ import {
 import SpecularButton from "@/components/reactbits/SpecularButton";
 import DriftWall from "@/components/reactbits/DriftWall";
 import MagicBento from "@/components/reactbits/MagicBento";
+import PillNav from "@/components/reactbits/PillNav";
 
 // Showcase items for the 3D DriftWall representing modern hackathon & engineering deliverables
 const SHOWCASE_ITEMS = [
@@ -87,57 +88,49 @@ export default function HomePage() {
       <div className="pointer-events-none absolute top-[30%] right-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[160px]" />
       <div className="pointer-events-none absolute bottom-[10%] left-[-5%] w-[600px] h-[600px] bg-coral-600/10 rounded-full blur-[150px]" />
 
-      {/* Navigation Header */}
+      {/* Navigation Header with PillNav */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#0d0b14]/70 border-b border-white/5 transition-all">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-coral-500 to-rose-600 flex items-center justify-center shadow-lg shadow-coral-500/25 group-hover:scale-105 transition-transform">
-              <BarChart3 className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold tracking-tight text-white group-hover:text-coral-400 transition-colors">
-                TeamTrack <span className="text-coral-500">AI</span>
-              </span>
-              <span className="text-[10px] text-gray-400 tracking-wider uppercase font-semibold">
-                Proof of Work OS
-              </span>
-            </div>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-300">
-            <a href="#features" className="hover:text-white transition-colors">
-              Features
-            </a>
-            <a href="#wall" className="hover:text-white transition-colors">
-              Deliverables Stream
-            </a>
-            <a href="#how-it-works" className="hover:text-white transition-colors">
-              How It Works
-            </a>
-            <a href="#scoring" className="hover:text-white transition-colors">
-              Scoring Model
-            </a>
-          </nav>
+          <PillNav
+            logo={
+              <div className="w-5 h-5 flex items-center justify-center text-white">
+                <BarChart3 className="w-4 h-4 text-white" />
+              </div>
+            }
+            logoAlt="TeamTrack AI Logo"
+            items={[
+              { label: "Overview", href: "/" },
+              { label: "Deliverables", href: "#wall" },
+              { label: "Features", href: "#features" },
+              { label: "Workflow", href: "#how-it-works" },
+              { label: "Scoring", href: "#scoring" },
+            ]}
+            baseColor="#ff6b6b"
+            pillColor="#181324"
+            pillTextColor="#d1d5db"
+            hoveredPillTextColor="#ffffff"
+          />
 
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="text-sm font-medium text-gray-300 hover:text-white px-4 py-2 rounded-lg hover:bg-white/5 transition-colors"
+              className="text-sm font-semibold text-gray-300 hover:text-white px-4 py-2 rounded-xl hover:bg-white/5 transition-colors hidden sm:inline-block"
             >
               Sign In
             </Link>
             <SpecularButton
               size="sm"
-              radius={12}
+              radius={14}
               tint="#ff6b6b"
-              tintOpacity={0.85}
+              tintOpacity={0.9}
               textColor="#ffffff"
               lineColor="#ffffff"
-              baseColor="#782e2e"
-              intensity={1.2}
+              baseColor="#802828"
+              intensity={1.3}
               onClick={() => router.push("/login")}
             >
-              Get Started
+              <span>Launch App</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </SpecularButton>
           </div>
         </div>
