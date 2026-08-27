@@ -102,7 +102,7 @@ export async function POST(
 
     const { data: workspace } = await supabase
       .from("workspaces")
-      .select("*, evidence_items(*), memberships(*, user:auth.users(id, email, raw_user_meta_data))")
+      .select("*")
       .eq("id", params.id)
       .single();
 
@@ -110,13 +110,23 @@ export async function POST(
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
+    const { data: evidenceItems } = await supabase
+      .from("evidence_items")
+      .select("*")
+      .eq("workspace_id", params.id);
+
+    const { data: memberships } = await (supabase
+      .from("memberships")
+      .select("*")
+      .eq("workspace_id", params.id) as any);
+
     const { data: manualEvidence } = await supabase
       .from("manual_evidence")
       .select("*")
       .eq("workspace_id", params.id);
 
     const allEvidence = [
-      ...(workspace.evidence_items || []),
+      ...(evidenceItems || []),
       ...(manualEvidence || []).map((m: any) => ({
         id: m.id,
         source: "manual",
@@ -157,7 +167,7 @@ export async function POST(
         source: e.source,
         category: e.category,
         actorId: e.actor_id,
-        collaborator_ids: e.collaborator_ids || [],
+        collaboratorIds: e.collaborator_ids || [],
         timestamp: new Date(e.timestamp),
         baseWeight: e.base_weight || 1.0,
         impactFactor: e.impact_factor || 1.0,
@@ -171,7 +181,7 @@ export async function POST(
         metadata: (e.metadata || {}) as Record<string, unknown>,
       })),
       categoryWeights,
-      members: (workspace.memberships || []).map((m: any) => ({
+      members: (memberships || []).map((m: any) => ({
         userId: m.user_id,
         declaredRoles: m.declared_contribution_roles || [],
       })),
@@ -181,10 +191,10 @@ export async function POST(
     const scoringOutput = calculateContributionScores(scoringInput);
 
     const enrichedResults = scoringOutput.memberResults.map((result) => {
-      const member = (workspace.memberships || []).find((m: any) => m.user_id === result.userId);
+      const member = (memberships || []).find((m: any) => m.user_id === result.userId);
       return {
         ...result,
-        displayName: member?.user?.raw_user_meta_data?.name || member?.user?.email || "Unknown",
+        displayName: member?.user?.raw_user_meta_data?.name || member?.user?.email || "Team Member",
         email: member?.user?.email || "",
       };
     });

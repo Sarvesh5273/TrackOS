@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 import {
   ArrowLeft, AlertTriangle, CheckCircle, Users, FileText,
-  TrendingUp, Minus, Info, Download, MessageSquare
+  TrendingUp, Minus, Info, Download, MessageSquare, ShieldCheck
 } from "lucide-react";
 import { formatDateTime, formatPercent } from "@/lib/utils";
 import type { Report, Workspace, EvidenceItem } from "@/types";
@@ -34,8 +35,8 @@ export default function ReportPage() {
     const wsRes = await fetch(`/api/workspaces/${workspaceId}`);
     if (!wsRes.ok) return;
     const wsData = await wsRes.json();
-    setWorkspace(wsData);
-    setEvidence(wsData.evidence_items || []);
+    setWorkspace(wsData.workspace || wsData);
+    setEvidence(wsData.evidence || wsData.evidence_items || []);
 
     // Get report
     const { data: reportData, error } = await supabase
@@ -120,10 +121,15 @@ export default function ReportPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50">
-                <Download className="w-4 h-4" />
-                Export PDF
-              </button>
+              <Link
+                href={`/verify/${report.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-coral-50 text-coral-700 border border-coral-200 rounded-lg hover:bg-coral-100 text-sm font-semibold transition-colors"
+              >
+                <ShieldCheck className="w-4 h-4 text-coral-600" />
+                Public Certificate &amp; Proof of Work
+              </Link>
             </div>
           </div>
         </div>

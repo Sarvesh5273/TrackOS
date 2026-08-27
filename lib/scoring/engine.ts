@@ -12,41 +12,40 @@ import {
   ContributionCategory,
   ConfidenceLevel,
   EvidenceValue,
+  ScoringMember,
 } from "@/types";
 
 // ============================================
 // Configuration: Base weights per evidence type
 // ============================================
 const BASE_WEIGHTS: Record<string, number> = {
-  GITHUB_COMMIT: 1.0,
-  GITHUB_PR: 2.5,
-  GITHUB_ISSUE: 1.5,
-  GITHUB_REVIEW: 2.0,
-  GITHUB_COMMENT: 0.5,
-  MANUAL: 1.5,
-  CSV_IMPORT: 1.0,
+  github_commit: 1.0,
+  github_pr: 2.5,
+  github_issue: 1.5,
+  github_review: 2.0,
+  github_comment: 0.5,
+  manual: 1.5,
+  csv_import: 1.0,
 };
 
 // Impact multipliers based on observable indicators
 function calculateImpactFactor(item: ScoringEvidenceItem): number {
   let impact = item.impactFactor || 1.0;
-
-  // FR-AI-04: More commits/lines do NOT necessarily mean more value
-  // But we can use metadata hints if available
   const meta = item.metadata || {};
+  const source = String(item.source).toLowerCase();
 
   // PR merged = higher impact than PR closed
-  if (item.source === "GITHUB_PR" && meta.merged === true) {
+  if (source === "github_pr" && meta.merged === true) {
     impact *= 1.3;
   }
 
   // Issue closed with fix = higher impact
-  if (item.source === "GITHUB_ISSUE" && meta.state === "closed") {
+  if (source === "github_issue" && meta.state === "closed") {
     impact *= 1.2;
   }
 
   // Review approved = higher impact than comment
-  if (item.source === "GITHUB_REVIEW" && meta.state === "APPROVED") {
+  if (source === "github_review" && (meta.reviewState === "APPROVED" || meta.state === "APPROVED")) {
     impact *= 1.2;
   }
 
@@ -56,15 +55,18 @@ function calculateImpactFactor(item: ScoringEvidenceItem): number {
 
 // Quality factor based on verification state
 function calculateQualityFactor(item: ScoringEvidenceItem): number {
-  switch (item.verificationState) {
-    case "PROVIDER_VERIFIED":
+  const state = String(item.verificationState || "").toLowerCase();
+  switch (state) {
+    case "provider_verified":
       return 1.0;
-    case "COLLABORATOR_CONFIRMED":
+    case "collaborator_confirmed":
       return 0.9;
-    case "MANUAL_SUBMITTED":
+    case "manual_submitted":
       return 0.7;
+    case "disputed":
+      return 0.3;
     default:
-      return 0.5;
+      return 0.6;
   }
 }
 
@@ -74,11 +76,7 @@ function calculateDuplicationFactor(item: ScoringEvidenceItem): number {
   if (item.isBotGenerated) return 0.0;
   if (item.isExcluded) return 0.0;
 
-  let factor = item.duplicationFactor || 1.0;
-
-  // FR-AI-11: Diminishing returns for high-frequency low-impact activity
-  // This is applied at aggregate level, not per-item
-  return factor;
+  return item.duplicationFactor || 1.0;
 }
 
 // Attribution share: how much credit does each member get?
@@ -86,23 +84,24 @@ function calculateAttributionShares(
   item: ScoringEvidenceItem
 ): { userId: string; share: number; confidence: number }[] {
   const shares: { userId: string; share: number; confidence: number }[] = [];
+  const collabs = item.collaboratorIds || [];
 
   // Primary actor
   if (item.actorId) {
     shares.push({
       userId: item.actorId,
-      share: item.collaboratorIds.length > 0 ? 0.6 : 1.0,
+      share: collabs.length > 0 ? 0.6 : 1.0,
       confidence: item.attributionConfidence || 1.0,
     });
   }
 
   // Collaborators (FR-AI-06: shared credit, not multiplied full credit)
-  item.collaboratorIds.forEach((collabId) => {
-    if (collabId !== item.actorId) {
+  collabs.forEach((collabId: string) => {
+    if (collabId && collabId !== item.actorId) {
       shares.push({
         userId: collabId,
-        share: 0.4 / item.collaboratorIds.length,
-        confidence: 0.8, // slightly lower for collaborators
+        share: 0.4 / collabs.length,
+        confidence: 0.85, // collaborator confidence
       });
     }
   });
@@ -123,14 +122,14 @@ export function calculateContributionScores(input: ScoringInput): ScoringOutput 
     validationIssues.push("No evidence items found for scoring.");
   }
 
-  const unmappedItems = evidenceItems.filter((e) => !e.actorId && e.collaboratorIds.length === 0);
+  const unmappedItems = evidenceItems.filter((e: ScoringEvidenceItem) => !e.actorId && (e.collaboratorIds || []).length === 0);
   if (unmappedItems.length > 0) {
     validationIssues.push(`${unmappedItems.length} evidence items have no attribution.`);
   }
 
-  const membersWithNoEvidence = members.filter((m) => {
+  const membersWithNoEvidence = members.filter((m: ScoringMember) => {
     return !evidenceItems.some(
-      (e) => e.actorId === m.userId || e.collaboratorIds.includes(m.userId)
+      (e: ScoringEvidenceItem) => e.actorId === m.userId || (e.collaboratorIds || []).includes(m.userId)
     );
   });
   if (membersWithNoEvidence.length > 0) {
@@ -142,8 +141,9 @@ export function calculateContributionScores(input: ScoringInput): ScoringOutput 
   // Step 1: Calculate per-evidence values
   const evidenceValues = new Map<string, EvidenceValue>();
 
-  evidenceItems.forEach((item) => {
-    const baseWeight = BASE_WEIGHTS[item.source] || 1.0;
+  evidenceItems.forEach((item: ScoringEvidenceItem) => {
+    const srcKey = String(item.source).toLowerCase();
+    const baseWeight = BASE_WEIGHTS[srcKey] || item.baseWeight || 1.0;
     const impactFactor = calculateImpactFactor(item);
     const qualityFactor = calculateQualityFactor(item);
     const duplicationFactor = calculateDuplicationFactor(item);
@@ -171,7 +171,7 @@ export function calculateContributionScores(input: ScoringInput): ScoringOutput 
   const memberCategoryValues = new Map<string, Map<ContributionCategory, number>>();
   const memberEvidenceCounts = new Map<string, Map<ContributionCategory, number>>();
 
-  evidenceItems.forEach((item) => {
+  evidenceItems.forEach((item: ScoringEvidenceItem) => {
     const shares = calculateAttributionShares(item);
     shares.forEach(({ userId }) => {
       if (!memberCategoryValues.has(userId)) {
@@ -230,13 +230,13 @@ export function calculateContributionScores(input: ScoringInput): ScoringOutput 
   const memberWeightedScores = new Map<string, number>();
   let totalWeightedScore = 0;
 
-  members.forEach((member) => {
+  members.forEach((member: ScoringMember) => {
     const normalizedCats = normalizedMemberCategoryValues.get(member.userId) || new Map();
     let weightedScore = 0;
 
     Object.entries(categoryWeights).forEach(([category, weight]) => {
       const normValue = normalizedCats.get(category as ContributionCategory) || 0;
-      weightedScore += weight * normValue;
+      weightedScore += (Number(weight) || 0) * normValue;
     });
 
     memberWeightedScores.set(member.userId, weightedScore);
@@ -244,7 +244,7 @@ export function calculateContributionScores(input: ScoringInput): ScoringOutput 
   });
 
   // Step 6: Convert to percentages
-  const memberResults: MemberResult[] = members.map((member) => {
+  const memberResults: MemberResult[] = members.map((member: ScoringMember) => {
     const weightedScore = memberWeightedScores.get(member.userId) || 0;
     const share = totalWeightedScore > 0 
       ? Math.round((weightedScore / totalWeightedScore) * 10000) / 100 
@@ -257,7 +257,7 @@ export function calculateContributionScores(input: ScoringInput): ScoringOutput 
     const catCounts = memberEvidenceCounts.get(member.userId) || new Map();
 
     const categoryResults: CategoryResult[] = Object.entries(categoryWeights).map(
-      ([category, weight]) => {
+      ([category, _weight]) => {
         const normValue = normalizedCats.get(category as ContributionCategory) || 0;
         const count = catCounts.get(category as ContributionCategory) || 0;
         return {
@@ -280,29 +280,29 @@ export function calculateContributionScores(input: ScoringInput): ScoringOutput 
 
     // Explainability: positive contributors
     const positiveContributors = evidenceItems
-      .filter((e) => {
+      .filter((e: ScoringEvidenceItem) => {
         const shares = calculateAttributionShares(e);
         return shares.some((s) => s.userId === member.userId);
       })
-      .map((e) => {
+      .map((e: ScoringEvidenceItem) => {
         const key = `${e.id}:${member.userId}`;
         const ev = evidenceValues.get(key);
         return {
           evidenceId: e.id,
-          description: `${e.source} — ${e.workType}`,
+          description: `${e.source} — ${e.workType || "contribution"}`,
           impact: ev?.calculatedValue || 0,
         };
       })
-      .sort((a, b) => b.impact - a.impact)
+      .sort((a: { impact: number }, b: { impact: number }) => b.impact - a.impact)
       .slice(0, 5);
 
     // Important exclusions
     const importantExclusions = evidenceItems
-      .filter((e) => {
-        const isRelevant = e.actorId === member.userId || e.collaboratorIds.includes(member.userId);
+      .filter((e: ScoringEvidenceItem) => {
+        const isRelevant = e.actorId === member.userId || (e.collaboratorIds || []).includes(member.userId);
         return isRelevant && (e.isExcluded || e.isDuplicate || e.isBotGenerated);
       })
-      .map((e) => ({
+      .map((e: ScoringEvidenceItem) => ({
         evidenceId: e.id,
         reason: e.isExcluded 
           ? "Excluded by policy" 
@@ -339,7 +339,7 @@ export function calculateContributionScores(input: ScoringInput): ScoringOutput 
 
   // Coverage warnings
   const coverageWarnings: string[] = [];
-  const categoriesWithEvidence = new Set(evidenceItems.map((e) => e.category));
+  const categoriesWithEvidence = new Set(evidenceItems.map((e: ScoringEvidenceItem) => e.category));
   Object.keys(categoryWeights).forEach((cat) => {
     if (!categoriesWithEvidence.has(cat as ContributionCategory)) {
       coverageWarnings.push(`No evidence found for category: ${cat}`);
@@ -361,8 +361,8 @@ export function calculateContributionScores(input: ScoringInput): ScoringOutput 
       formula: "S_m = 100 × Σ_c(W_c × N_{m,c}) / Σ_jΣ_c(W_c × N_{j,c})",
       categoryWeightsApplied: categoryWeights,
       totalEvidenceItems: evidenceItems.length,
-      excludedItems: evidenceItems.filter((e) => e.isExcluded).length,
-      botItems: evidenceItems.filter((e) => e.isBotGenerated).length,
+      excludedItems: evidenceItems.filter((e: ScoringEvidenceItem) => e.isExcluded).length,
+      botItems: evidenceItems.filter((e: ScoringEvidenceItem) => e.isBotGenerated).length,
     },
   };
 }
@@ -379,7 +379,7 @@ function calculateConfidence(
   const reasons: string[] = [];
 
   const userEvidence = evidenceItems.filter(
-    (e) => e.actorId === userId || e.collaboratorIds.includes(userId)
+    (e) => e.actorId === userId || (e.collaboratorIds || []).includes(userId)
   );
 
   const totalEvidence = evidenceItems.length;
@@ -397,8 +397,8 @@ function calculateConfidence(
   }
 
   // Manual vs verified ratio
-  const manualItems = userEvidence.filter((e) => e.source === "MANUAL");
-  const verifiedItems = userEvidence.filter((e) => e.verificationState === "PROVIDER_VERIFIED");
+  const manualItems = userEvidence.filter((e) => String(e.source).toLowerCase() === "manual");
+  const verifiedItems = userEvidence.filter((e) => String(e.verificationState).toLowerCase() === "provider_verified");
   if (manualItems.length > verifiedItems.length * 2) {
     reasons.push("Most evidence is manually submitted without provider verification.");
   }
@@ -439,3 +439,4 @@ function calculateOverallConfidence(
   }
   return "HIGH";
 }
+

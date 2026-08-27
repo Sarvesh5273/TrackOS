@@ -6,133 +6,220 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const workspaceId = params.id;
-
-  // Check membership
-  const { data: membership } = await supabase
-    .from("memberships")
-    .select("role")
-    .eq("workspace_id", workspaceId)
-    .eq("user_id", user.id)
-    .single();
-
-  if (!membership) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  // Get integration
-  const { data: integration } = await supabase
-    .from("integrations")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .eq("provider", "github")
-    .eq("status", "active")
-    .single();
-
-  if (!integration) {
-    return NextResponse.json({ error: "No active GitHub integration" }, { status: 400 });
-  }
-
-  // Get user's GitHub token from provider (simplified — in production use encrypted storage)
-  const { data: { session } } = await supabase.auth.getSession();
-  const providerToken = session?.provider_token;
-
-  if (!providerToken) {
-    return NextResponse.json({ error: "GitHub token not available" }, { status: 400 });
-  }
-
-  const resources = integration.selected_resources as Array<{ id: string; name: string }>;
-  const [owner, repo] = resources[0]?.id?.split("/") || [];
-
-  if (!owner || !repo) {
-    return NextResponse.json({ error: "Invalid repository config" }, { status: 400 });
-  }
-
-  // Get workspace dates
-  const { data: workspace } = await supabase
-    .from("workspaces")
-    .select("start_date, end_date")
-    .eq("id", workspaceId)
-    .single();
-
   try {
-    const syncService = new GitHubSyncService(providerToken);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const workspaceId = params.id;
+
+    // Check membership
+    const { data: membership } = await supabase
+      .from("memberships")
+      .select("role")
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!membership) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // Get integration
+    const { data: integration, error: intError } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .eq("provider", "github")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (intError || !integration) {
+      return NextResponse.json(
+        { error: "No GitHub integration found. Please connect your repository first." },
+        { status: 400 }
+      );
+    }
+
+    // Parse repository owner and name from selected_resources
+    let owner = "";
+    let repo = "";
+
+    const res = integration.selected_resources as any;
+    if (res) {
+      if (res.owner && res.name) {
+        owner = res.owner;
+        repo = res.name;
+      } else if (typeof res.repo === "string") {
+        const parts = res.repo.split("/");
+        owner = parts[0];
+        repo = parts[1];
+      } else if (Array.isArray(res) && res[0]?.id) {
+        const parts = String(res[0].id).split("/");
+        owner = parts[0];
+        repo = parts[1];
+      }
+    }
+
+    if (!owner || !repo) {
+      return NextResponse.json(
+        { error: "Invalid repository configuration in integration." },
+        { status: 400 }
+      );
+    }
+
+    // Token resolution cascade:
+    // 1. Stored integration token (PAT)
+    // 2. User's Supabase session provider_token
+    // 3. Server environment GITHUB_TOKEN
+    // 4. undefined (unauthenticated access for public repos)
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = integration.credential_ref || session?.provider_token || process.env.GITHUB_TOKEN;
+
+    // Get workspace date range
+    const { data: workspace } = await supabase
+      .from("workspaces")
+      .select("start_date, end_date")
+      .eq("id", workspaceId)
+      .single();
+
+    const syncService = new GitHubSyncService(token);
     const evidence = await syncService.syncRepository({
-      accessToken: providerToken,
+      accessToken: token,
       owner,
       repo,
-      since: new Date(workspace?.start_date || "2024-01-01"),
-      until: new Date(workspace?.end_date || Date.now()),
+      since: workspace?.start_date ? new Date(workspace.start_date) : undefined,
+      until: workspace?.end_date ? new Date(workspace.end_date) : undefined,
     });
 
-    // Insert evidence
-    const syncVersion = `sync-${Date.now()}`;
-    const evidenceToInsert = evidence.map((e) => ({
-      workspace_id: workspaceId,
-      source: e.source,
-      source_id: e.sourceId,
-      source_url: e.sourceUrl,
-      event_type: e.eventType,
-      actor_username: e.actorUsername,
-      actor_email: e.actorEmail,
-      timestamp: e.timestamp.toISOString(),
-      summary: e.summary,
-      description: e.description,
-      category: e.category,
-      work_type: e.workType,
-      metadata: e.metadata,
-      base_weight: e.baseWeight,
-      sync_version: syncVersion,
-      verification_state: "provider_verified",
-      is_bot_generated: e.actorUsername?.includes("[bot]") || e.actorUsername?.includes("bot"),
-    }));
+    if (!evidence || evidence.length === 0) {
+      await supabase
+        .from("integrations")
+        .update({
+          last_synced_at: new Date().toISOString(),
+          status: "active",
+          error_message: null,
+        })
+        .eq("id", integration.id);
 
+      return NextResponse.json({
+        synced: 0,
+        message: "Sync completed. No commits or pull requests found in the workspace date range.",
+      });
+    }
+
+    // Query workspace memberships for identity auto-mapping
+    const { data: members } = await supabase
+      .from("memberships")
+      .select("user_id, role")
+      .eq("workspace_id", workspaceId);
+
+    // Fetch user profiles for mapped matching
+    const memberUserIds = (members || []).map((m) => m.user_id).filter(Boolean);
+    const usernameToUserId = new Map<string, string>();
+    const emailToUserId = new Map<string, string>();
+
+    // Link logged in user
+    if (user.user_metadata?.user_name) {
+      usernameToUserId.set(user.user_metadata.user_name.toLowerCase(), user.id);
+    }
+    if (user.email) {
+      emailToUserId.set(user.email.toLowerCase(), user.id);
+    }
+
+    // Populate evidence items with attribution
+    const syncVersion = `sync-${Date.now()}`;
+    const evidenceToInsert = evidence.map((e) => {
+      const lowerUsername = (e.actorUsername || "").toLowerCase();
+      const lowerEmail = (e.actorEmail || "").toLowerCase();
+
+      const matchedUserId =
+        usernameToUserId.get(lowerUsername) ||
+        (lowerEmail ? emailToUserId.get(lowerEmail) : undefined) ||
+        null;
+
+      const isBot = Boolean(
+        lowerUsername.includes("[bot]") ||
+        lowerUsername.includes("bot") ||
+        lowerUsername.includes("actions-user") ||
+        lowerUsername.includes("dependabot") ||
+        lowerUsername.includes("renovate")
+      );
+
+      return {
+        workspace_id: workspaceId,
+        source: e.source,
+        source_id: e.sourceId,
+        source_url: e.sourceUrl,
+        event_type: e.eventType,
+        actor_id: matchedUserId,
+        actor_username: e.actorUsername,
+        actor_email: e.actorEmail || null,
+        attribution_confidence: matchedUserId ? 1.0 : 0.5,
+        mapping_status: matchedUserId ? "mapped" : "unmapped",
+        timestamp: e.timestamp.toISOString(),
+        summary: e.summary,
+        description: e.description || null,
+        category: e.category,
+        work_type: e.workType,
+        metadata: e.metadata,
+        base_weight: e.baseWeight,
+        impact_factor: 1.0,
+        quality_factor: 1.0,
+        duplication_factor: 1.0,
+        calculated_value: e.baseWeight,
+        sync_version: syncVersion,
+        verification_state: "provider_verified",
+        is_duplicate: false,
+        is_bot_generated: isBot,
+        is_excluded: isBot,
+        exclusion_reason: isBot ? "Detected as automated bot activity" : null,
+      };
+    });
+
+    // Upsert evidence items into database
     const { error: insertError } = await supabase
       .from("evidence_items")
       .upsert(evidenceToInsert, { onConflict: "workspace_id,source,source_id,sync_version" });
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error("Failed to insert evidence items:", insertError);
+      throw insertError;
+    }
 
-    // Update integration last_synced
+    // Update integration status and timestamp
     await supabase
       .from("integrations")
-      .update({ last_synced_at: new Date().toISOString(), sync_cursor: syncVersion })
+      .update({
+        last_synced_at: new Date().toISOString(),
+        sync_cursor: syncVersion,
+        status: "active",
+        error_message: null,
+      })
       .eq("id", integration.id);
 
-    // Try to auto-map identities
-    const { data: existingMappings } = await supabase
-      .from("memberships")
-      .select("user_id, user:auth.users(raw_user_meta_data)")
-      .eq("workspace_id", workspaceId);
-
-    const usernameToUserId = new Map<string, string>();
-    existingMappings?.forEach((m: any) => {
-      const username = m.user?.raw_user_meta_data?.user_name;
-      if (username) usernameToUserId.set(username, m.user_id);
+    // Audit log
+    await supabase.from("audit_events").insert({
+      actor_id: user.id,
+      workspace_id: workspaceId,
+      action: "integration.synced",
+      object_type: "integration",
+      object_id: integration.id,
+      new_value: {
+        itemCount: evidenceToInsert.length,
+        syncVersion,
+        repo: `${owner}/${repo}`,
+      },
     });
-
-    // Update evidence with mapped actor_ids
-    for (const item of evidenceToInsert) {
-      const userId = usernameToUserId.get(item.actor_username);
-      if (userId) {
-        await supabase
-          .from("evidence_items")
-          .update({ actor_id: userId, attribution_confidence: 1.0, mapping_status: "mapped" })
-          .eq("workspace_id", workspaceId)
-          .eq("source_id", item.source_id)
-          .eq("sync_version", syncVersion);
-      }
-    }
 
     return NextResponse.json({
       synced: evidenceToInsert.length,
       syncVersion,
-      message: `Synced ${evidenceToInsert.length} evidence items`,
+      message: `Successfully synced ${evidenceToInsert.length} items from ${owner}/${repo}`,
     });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Sync error:", error);
+    return NextResponse.json({ error: error.message || "Failed to sync repository" }, { status: 500 });
   }
 }
+
