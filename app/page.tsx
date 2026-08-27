@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,12 +23,17 @@ import {
   Terminal,
   Code2,
   Cpu,
+  XCircle,
+  Check,
+  Flame,
+  CheckCheck,
 } from "lucide-react";
 import SpecularButton from "@/components/reactbits/SpecularButton";
 import DriftWall from "@/components/reactbits/DriftWall";
 import MagicBento from "@/components/reactbits/MagicBento";
 import PillNav from "@/components/reactbits/PillNav";
 import ChromaWaves from "@/components/reactbits/ChromaWaves";
+import { FigmaLogo, LoomLogo, GoogleDocsLogo, MiroLogo, NotionLogo } from "@/components/PlatformIcons";
 
 // High-contrast, dark-mode engineering & design artifact tiles for DriftWall
 const SHOWCASE_ITEMS = [
@@ -103,6 +108,7 @@ export default function HomePage() {
                 { label: "Overview", href: "/" },
                 { label: "Deliverables", href: "#wall" },
                 { label: "Features", href: "#features" },
+                { label: "Comparison", href: "#comparison" },
                 { label: "Workflow", href: "#how-it-works" },
                 { label: "Scoring", href: "#scoring" },
               ]}
@@ -154,13 +160,6 @@ export default function HomePage() {
 
         {/* Centered Content Container */}
         <div className="relative z-10 px-6 max-w-5xl mx-auto text-center flex flex-col items-center">
-          {/* Crisp Monochromatic Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs font-medium tracking-wide mb-8 shadow-sm hover:border-zinc-500 transition-colors">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>v1.0 · Proof of Work OS</span>
-            <ChevronRight className="w-3 h-3 text-zinc-500" />
-          </div>
-
           {/* Hero Title: Punchy 2 lines */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] max-w-4xl mb-6 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
             Fair contribution tracking.
@@ -174,7 +173,7 @@ export default function HomePage() {
           </p>
 
           {/* Primary CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
             <SpecularButton
               size="lg"
               radius={14}
@@ -200,6 +199,194 @@ export default function HomePage() {
               <span>Continue with GitHub</span>
             </Link>
           </div>
+
+          {/* Live Interactive Product Card Mockup */}
+          <div className="w-full max-w-4xl rounded-2xl bg-[#0c0c10]/95 border border-zinc-800 shadow-[0_20px_60px_rgba(0,0,0,0.8)] backdrop-blur-xl p-6 sm:p-8 text-left [mask-image:linear-gradient(to_bottom,black_80%,transparent_100%)]">
+            {/* Header Bar */}
+            <div className="flex items-center justify-between pb-5 border-b border-zinc-800/80 mb-6">
+              <div className="flex items-center gap-2.5">
+                <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                <div className="w-3 h-3 rounded-full bg-amber-500/80" />
+                <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                <span className="ml-2 text-xs font-mono text-zinc-400">workspace / hackathon-sprint / report-v1</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                  <Shield className="w-3.5 h-3.5" /> SHA-256 Verified
+                </span>
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-zinc-800 text-zinc-300">
+                  HIGH Confidence
+                </span>
+              </div>
+            </div>
+
+            {/* Contributor Card Breakdown */}
+            <div className="grid sm:grid-cols-3 gap-6 items-center">
+              <div className="sm:col-span-2 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-white text-black font-bold flex items-center justify-center text-sm shadow">
+                      SB
+                    </div>
+                    <div>
+                      <h4 className="text-base font-semibold text-white">Sarvesh Bijawe</h4>
+                      <p className="text-xs text-zinc-400">Lead Architect &amp; UI Designer</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-bold text-white tracking-tight">100.0%</span>
+                    <p className="text-[11px] text-zinc-400">Attributed Share</p>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden flex">
+                  <div className="bg-blue-400 h-full w-[40%]" title="Development (40%)" />
+                  <div className="bg-purple-400 h-full w-[35%]" title="Design (35%)" />
+                  <div className="bg-emerald-400 h-full w-[25%]" title="Testing (25%)" />
+                </div>
+
+                {/* Badges */}
+                <div className="flex flex-wrap gap-2 pt-1 text-xs">
+                  <span className="px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 flex items-center gap-1">
+                    ⚡ Feature Architect
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 flex items-center gap-1">
+                    🎨 Design Maestro
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 flex items-center gap-1">
+                    🎯 Bug Slayer
+                  </span>
+                </div>
+              </div>
+
+              {/* Key Evidence Box */}
+              <div className="bg-black/60 rounded-xl p-4 border border-zinc-800 space-y-2.5 text-xs font-mono">
+                <p className="text-zinc-400 uppercase text-[10px] font-sans font-semibold tracking-wider">Verified Evidence</p>
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span className="truncate">UI/UX Design System in Figma</span>
+                  <span className="text-emerald-400 font-semibold">+1.6</span>
+                </div>
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span className="truncate">Webhook Ingestion Engine</span>
+                  <span className="text-emerald-400 font-semibold">+1.0</span>
+                </div>
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span className="truncate">SHA-256 Public Certificate</span>
+                  <span className="text-emerald-400 font-semibold">+1.0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Integration Ecosystem Marquee */}
+      <section className="relative z-10 py-10 border-y border-zinc-800/80 bg-[#050507]">
+        <div className="max-w-7xl mx-auto px-6 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_15%,black_85%,transparent)]">
+          <div className="animate-marquee items-center gap-16 text-zinc-400 text-sm font-medium">
+            <div className="flex items-center gap-3">
+              <Github className="w-5 h-5 text-white" />
+              <span className="text-white font-semibold">GitHub Commits &amp; PRs</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <FigmaLogo className="w-5 h-5" />
+              <span className="text-white font-semibold">Figma Design Frames</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <LoomLogo className="w-5 h-5" />
+              <span className="text-white font-semibold">Loom Demos</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <MiroLogo className="w-5 h-5" />
+              <span className="text-white font-semibold">Miro Architecture</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <GoogleDocsLogo className="w-5 h-5" />
+              <span className="text-white font-semibold">Docs &amp; Slide Decks</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <NotionLogo className="w-5 h-5" />
+              <span className="text-white font-semibold">Notion Specs</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Github className="w-5 h-5 text-white" />
+              <span className="text-white font-semibold">GitHub Commits &amp; PRs</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <FigmaLogo className="w-5 h-5" />
+              <span className="text-white font-semibold">Figma Design Frames</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison: Broken vs Fair Paradigm */}
+      <section id="comparison" className="relative z-10 py-24 px-6 max-w-5xl mx-auto">
+        <div className="text-center mb-16">
+          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
+            The Contribution Problem
+          </span>
+          <h2 className="text-3xl sm:text-5xl font-bold text-white mt-2 tracking-tight">
+            Stop grading teams by commit count.
+          </h2>
+          <p className="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto mt-3">
+            Traditional tools only count git lines. TeamTrack AI values the complete software lifecycle.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Left: Broken Way */}
+          <div className="p-8 rounded-2xl bg-[#09090b] border border-red-500/20 shadow-xl space-y-5">
+            <div className="flex items-center gap-2.5 text-red-400 font-semibold text-sm">
+              <XCircle className="w-5 h-5 text-red-400" />
+              <span>Traditional Hackathon &amp; Team Tracking</span>
+            </div>
+            <ul className="space-y-3.5 text-sm text-zinc-400">
+              <li className="flex items-start gap-2.5">
+                <span className="text-red-400 font-bold">✕</span>
+                <span>Designers &amp; QA testers get 0 credit because they don&apos;t write code.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-red-400 font-bold">✕</span>
+                <span>Commit-padding and formatting changes artificially inflate contribution.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-red-400 font-bold">✕</span>
+                <span>Last-minute disputes over who built what with zero evidence trail.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="text-red-400 font-bold">✕</span>
+                <span>No verifiable proof to show judges, hiring managers, or LinkedIn.</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Right: TeamTrack AI Way */}
+          <div className="p-8 rounded-2xl bg-[#09090b] border border-emerald-500/20 shadow-xl space-y-5">
+            <div className="flex items-center gap-2.5 text-emerald-400 font-semibold text-sm">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              <span>With TeamTrack AI</span>
+            </div>
+            <ul className="space-y-3.5 text-sm text-zinc-300">
+              <li className="flex items-start gap-2.5">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>Multi-role category weighting balances Dev, Design, QA, and Pitch.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>Automated webhook author mapping, bot filtering, and duplicate pruning.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>Interactive Dispute &amp; Consensus Room to agree on 50/50 joint credit splits.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>Permanent public SHA-256 proof certificates with earned achievement badges.</span>
+              </li>
+            </ul>
+          </div>
         </div>
       </section>
 
@@ -213,12 +400,12 @@ export default function HomePage() {
             Every contribution verified in 3D
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400 max-w-xl mx-auto mt-2">
-            Tilt and navigate the live stream of commits, Figma design tokens, testing reports, and cryptographic seals.
+            Move your cursor to navigate the live stream of commits, Figma design tokens, testing reports, and cryptographic seals.
           </p>
         </div>
 
         {/* DriftWall Viewport Container */}
-        <div className="w-full h-[520px] rounded-2xl border border-white/[0.08] bg-[#050505] shadow-2xl relative overflow-hidden">
+        <div className="w-full h-[520px] rounded-2xl border border-zinc-800 bg-[#050505] shadow-2xl relative overflow-hidden">
           <DriftWall
             items={SHOWCASE_ITEMS}
             columns={5}
@@ -244,7 +431,7 @@ export default function HomePage() {
       {/* Interactive Bento Grid Features Section */}
       <section id="features" className="relative z-10 py-24 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-zinc-300 text-xs font-medium uppercase tracking-wider mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs font-medium uppercase tracking-wider mb-3">
             <Activity className="w-3.5 h-3.5" />
             Engineering Intelligence
           </div>
@@ -270,7 +457,7 @@ export default function HomePage() {
       </section>
 
       {/* How It Works 3-Step Walkthrough */}
-      <section id="how-it-works" className="relative z-10 py-20 px-6 max-w-7xl mx-auto border-t border-white/[0.06]">
+      <section id="how-it-works" className="relative z-10 py-20 px-6 max-w-7xl mx-auto border-t border-zinc-800/80">
         <div className="text-center mb-16">
           <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">
             Architecture
@@ -281,8 +468,8 @@ export default function HomePage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          <div className="p-8 rounded-2xl bg-[#09090b] border border-white/[0.08] hover:border-white/20 transition-all">
-            <div className="w-10 h-10 rounded-xl bg-white/[0.06] text-white flex items-center justify-center font-semibold text-sm mb-6 border border-white/10">
+          <div className="p-8 rounded-2xl bg-[#09090b] border border-zinc-800 hover:border-zinc-600 transition-all">
+            <div className="w-10 h-10 rounded-xl bg-zinc-800 text-white flex items-center justify-center font-semibold text-sm mb-6 border border-zinc-700">
               01
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Automated Ingestion</h3>
@@ -291,8 +478,8 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="p-8 rounded-2xl bg-[#09090b] border border-white/[0.08] hover:border-white/20 transition-all">
-            <div className="w-10 h-10 rounded-xl bg-white/[0.06] text-white flex items-center justify-center font-semibold text-sm mb-6 border border-white/10">
+          <div className="p-8 rounded-2xl bg-[#09090b] border border-zinc-800 hover:border-zinc-600 transition-all">
+            <div className="w-10 h-10 rounded-xl bg-zinc-800 text-white flex items-center justify-center font-semibold text-sm mb-6 border border-zinc-700">
               02
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Explainable Scoring</h3>
@@ -301,8 +488,8 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="p-8 rounded-2xl bg-[#09090b] border border-white/[0.08] hover:border-white/20 transition-all">
-            <div className="w-10 h-10 rounded-xl bg-white/[0.06] text-white flex items-center justify-center font-semibold text-sm mb-6 border border-white/10">
+          <div className="p-8 rounded-2xl bg-[#09090b] border border-zinc-800 hover:border-zinc-600 transition-all">
+            <div className="w-10 h-10 rounded-xl bg-zinc-800 text-white flex items-center justify-center font-semibold text-sm mb-6 border border-zinc-700">
               03
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Cryptographic Proof</h3>
@@ -315,7 +502,7 @@ export default function HomePage() {
 
       {/* Transparent Formula Callout Section */}
       <section id="scoring" className="relative z-10 py-16 px-6 max-w-5xl mx-auto">
-        <div className="rounded-2xl bg-[#09090b] border border-white/[0.08] p-8 sm:p-12 shadow-2xl relative overflow-hidden">
+        <div className="rounded-2xl bg-[#09090b] border border-zinc-800 p-8 sm:p-12 shadow-2xl relative overflow-hidden">
           <div className="relative z-10">
             <div className="flex items-center gap-2 text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">
               <Lock className="w-3.5 h-3.5" />
@@ -327,7 +514,7 @@ export default function HomePage() {
             <p className="text-sm text-zinc-400 mb-6 max-w-2xl leading-relaxed">
               Every member score is calculated transparently using verifiable mathematical equations:
             </p>
-            <div className="bg-[#050505] rounded-xl p-5 border border-white/[0.08] font-mono text-xs sm:text-sm text-zinc-300 space-y-2 overflow-x-auto">
+            <div className="bg-[#050505] rounded-xl p-5 border border-zinc-800 font-mono text-xs sm:text-sm text-zinc-300 space-y-2 overflow-x-auto">
               <p className="text-zinc-200">V_(m,e,c) = B_e × I_e × A_(m,e) × Q_e × D_e</p>
               <p className="text-zinc-400">
                 S_m = 100 × Σ_c(W_c × N_(m,c)) / Σ_jΣ_c(W_c × N_(j,c))
@@ -339,7 +526,7 @@ export default function HomePage() {
 
       {/* High-Impact Bottom Call to Action */}
       <section className="relative z-10 py-24 px-6 text-center max-w-5xl mx-auto">
-        <div className="p-12 sm:p-16 rounded-2xl bg-[#09090b] border border-white/[0.08] shadow-2xl relative overflow-hidden">
+        <div className="p-12 sm:p-16 rounded-2xl bg-[#09090b] border border-zinc-800 shadow-2xl relative overflow-hidden">
           <div className="pointer-events-none absolute top-[-50%] left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-white/[0.03] rounded-full blur-[100px]" />
 
           <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">
@@ -368,7 +555,7 @@ export default function HomePage() {
 
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-medium text-sm transition-all"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-medium text-sm transition-all"
             >
               <Github className="w-4 h-4 text-zinc-300" />
               <span>Sign In with GitHub</span>
@@ -377,8 +564,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Minimalist Monochrome Footer */}
-      <footer className="relative z-10 border-t border-white/[0.06] py-12 px-6 max-w-7xl mx-auto text-xs text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-6">
+      {/* Minimalist Pro Footer */}
+      <footer className="relative z-10 border-t border-zinc-800/80 py-12 px-6 max-w-7xl mx-auto text-xs text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-2.5">
           <div className="w-5 h-5 rounded-md bg-white text-black flex items-center justify-center">
             <BarChart3 className="w-3 h-3" />
