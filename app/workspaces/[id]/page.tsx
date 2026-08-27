@@ -589,6 +589,27 @@ export default function WorkspaceDetailPage() {
     }
   };
 
+  const handleDeleteReport = async (reportId: string) => {
+    if (!confirm("Are you sure you want to delete this report? This will permanently remove the report version.")) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/workspaces/${id}/reports/${reportId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        await fetchReports();
+        showToast("Report deleted successfully", "success");
+      } else {
+        const err = await res.json();
+        showToast(err.error || "Failed to delete report", "error");
+      }
+    } catch (e) {
+      showToast("Failed to delete report", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const filteredEvidence = evidence.filter((item) => {
     if (filters.category !== "all" && item.category !== filters.category) return false;
     if (filters.source !== "all") {
@@ -1386,6 +1407,16 @@ export default function WorkspaceDetailPage() {
                             >
                               <Award className="w-3.5 h-3.5" />
                               Publish
+                            </button>
+                          )}
+                          {isLeader && (
+                            <button
+                              onClick={() => handleDeleteReport(report.id)}
+                              disabled={actionLoading}
+                              className="p-1.5 rounded-lg text-muted hover:text-red-600 hover:bg-red-50 transition-colors border border-transparent hover:border-red-200"
+                              title="Delete this report"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>

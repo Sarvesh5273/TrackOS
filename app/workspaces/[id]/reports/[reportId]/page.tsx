@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import {
   ArrowLeft, AlertTriangle, CheckCircle, Users, FileText,
-  TrendingUp, Minus, Info, Download, MessageSquare, ShieldCheck
+  TrendingUp, Minus, Info, Download, MessageSquare, ShieldCheck, Trash2, Loader2
 } from "lucide-react";
 import { formatDateTime, formatPercent } from "@/lib/utils";
 import type { Report, Workspace, EvidenceItem } from "@/types";
@@ -19,6 +19,7 @@ export default function ReportPage() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   const workspaceId = params.id as string;
   const reportId = params.reportId as string;
@@ -48,6 +49,26 @@ export default function ReportPage() {
     if (error) { router.push(`/workspaces/${workspaceId}`); return; }
     setReport(reportData);
     setLoading(false);
+  };
+
+  const handleDeleteReport = async () => {
+    if (!confirm("Are you sure you want to delete this report? This action cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}/reports/${reportId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        router.push(`/workspaces/${workspaceId}`);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to delete report");
+        setDeleting(false);
+      }
+    } catch {
+      alert("Failed to delete report");
+      setDeleting(false);
+    }
   };
 
   const getConfidenceBadge = (level: string) => {
@@ -130,6 +151,15 @@ export default function ReportPage() {
                 <ShieldCheck className="w-4 h-4 text-coral-600" />
                 Public Certificate &amp; Proof of Work
               </Link>
+              <button
+                onClick={handleDeleteReport}
+                disabled={deleting}
+                className="flex items-center gap-1.5 px-3 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 text-sm font-medium transition-colors disabled:opacity-50"
+                title="Delete this report"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                <span>Delete</span>
+              </button>
             </div>
           </div>
         </div>
