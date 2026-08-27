@@ -4,9 +4,10 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import "./DriftWall.css";
 
 export interface DriftWallItem {
-  image: string;
+  image?: string;
   title?: string;
   href?: string;
+  content?: React.ReactNode;
 }
 
 export interface DriftWallProps {
@@ -262,8 +263,14 @@ export default function DriftWall({
   const renderTile = (item: DriftWallItem, id: string, colIndex: number) => {
     const inner = (
       <span className="drift-wall__inner">
-        <img src={item.image} alt={item.title ?? ""} loading="lazy" decoding="async" draggable={false} />
-        <span className="drift-wall__overlay" aria-hidden="true" />
+        {item.content ? (
+          item.content
+        ) : (
+          <>
+            {item.image && <img src={item.image} alt={item.title ?? ""} loading="lazy" decoding="async" draggable={false} />}
+            <span className="drift-wall__overlay" aria-hidden="true" />
+          </>
+        )}
       </span>
     );
     const commonProps = {

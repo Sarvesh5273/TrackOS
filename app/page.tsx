@@ -29,61 +29,265 @@ import {
   CheckCheck,
 } from "lucide-react";
 import SpecularButton from "@/components/reactbits/SpecularButton";
-import DriftWall from "@/components/reactbits/DriftWall";
+import DriftWall, { type DriftWallItem } from "@/components/reactbits/DriftWall";
 import MagicBento from "@/components/reactbits/MagicBento";
 import PillNav from "@/components/reactbits/PillNav";
 import ChromaWaves from "@/components/reactbits/ChromaWaves";
 import { FigmaLogo, LoomLogo, GoogleDocsLogo, MiroLogo, NotionLogo } from "@/components/PlatformIcons";
 
-// High-contrast, dark-mode engineering & design artifact tiles for DriftWall
-const SHOWCASE_ITEMS = [
+// Meaningful, bespoke deliverable UI tickets for DriftWall 3D Stream
+const SHOWCASE_ITEMS: DriftWallItem[] = [
   {
-    image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=600&q=80",
-    title: "GitHub Webhook & Commit Engine",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Github className="w-3.5 h-3.5 text-white" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">PR #42 · Merged</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-emerald-400 font-bold">+1.20</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">feat(auth): PKCE Flow</p>
+          <p className="text-[10px] text-zinc-500 font-mono">+342 -12 lines · 8 files</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>@sarvesh</span>
+          <span className="text-zinc-500">CODE · 45%</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=600&q=80",
-    title: "SHA-256 Cryptographic Verification Seal",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FigmaLogo className="w-3.5 h-3.5" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">Figma System</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-purple-400 font-bold">+1.60</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">Design Tokens v2.4 (Dark)</p>
+          <p className="text-[10px] text-zinc-500 font-mono">14 Component Frames</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>@sarvesh</span>
+          <span className="text-zinc-500">DESIGN · 35%</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80",
-    title: "Full-Stack TypeScript & Next.js Core",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Shield className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">SHA-256 Proof</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400 font-bold">SEALED</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">Cert #9f8a2c1d4e6b</p>
+          <p className="text-[10px] text-zinc-500 font-mono">Immutable Provenance Hash</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>/verify/rep_7f8a</span>
+          <span className="text-emerald-400 font-semibold">100% Valid</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=600&q=80",
-    title: "Team Health & Hero Syndrome Radar",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <LoomLogo className="w-3.5 h-3.5" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">Loom Demo</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-blue-400 font-bold">+1.00</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">Architecture Walkthrough</p>
+          <p className="text-[10px] text-zinc-500 font-mono">3m 12s HD Video Spec</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>@sarvesh</span>
+          <span className="text-zinc-500">PITCH · 20%</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80",
-    title: "AI Release Digest & Sprint Changelog",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">QA Audit</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-emerald-400 font-bold">PASS</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">Playwright E2E Suite</p>
+          <p className="text-[10px] text-zinc-500 font-mono">18/18 Tests · 99.4%</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>CI Pipeline #142</span>
+          <span className="text-zinc-500">+0.90</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=600&q=80",
-    title: "Figma UI Systems & Design Specs",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="w-3.5 h-3.5 text-white" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">Dispute Room</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400 font-bold">50/50</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">Joint Feature Co-Sign</p>
+          <p className="text-[10px] text-zinc-500 font-mono">Sarvesh (50%) &amp; Alex (50%)</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>✓ Co-Signed</span>
+          <span className="text-zinc-500">CONSENSUS</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1558655146-d09347e92766?auto=format&fit=crop&w=600&q=80",
-    title: "Verified Contributor Achievement Badges",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">AI Changelog</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-300 font-bold">v1.2.0</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">Sprint Release Digest</p>
+          <p className="text-[10px] text-zinc-500 font-mono">Synthesized from 48 Commits</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>4 Features · 2 Fixes</span>
+          <span className="text-emerald-400">READY</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80",
-    title: "Peer Co-Signing & Trust Index",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MiroLogo className="w-3.5 h-3.5" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">Miro Board</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-yellow-400 font-bold">+0.80</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">System Webhook Topology</p>
+          <p className="text-[10px] text-zinc-500 font-mono">6 Microservices &amp; Schema</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>@alex</span>
+          <span className="text-zinc-500">ARCH · 15%</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80",
-    title: "Real-Time Evidence Timeline",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">Health Radar</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-emerald-400 font-bold">94%</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">Sprint Velocity Balance</p>
+          <p className="text-[10px] text-zinc-500 font-mono">0 Critical Burnout Alerts</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>3 Teammates</span>
+          <span className="text-emerald-400">BALANCED</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=600&q=80",
-    title: "Normalized Multi-Role Attribution",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <NotionLogo className="w-3.5 h-3.5" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">Notion RFC</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-300 font-bold">+1.10</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">RFC #104: Scoring Model</p>
+          <p className="text-[10px] text-zinc-500 font-mono">12 Pages · Product Spec</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>@sarvesh</span>
+          <span className="text-zinc-500">SPEC · 20%</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=600&q=80",
-    title: "50/50 Split Credit Consensus Room",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <GitBranch className="w-3.5 h-3.5 text-white" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">Commit #e81f</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-white font-bold">+0.85</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">perf(core): vector cache</p>
+          <p className="text-[10px] text-zinc-500 font-mono">+120 -8 lines · 3 files</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>@alex</span>
+          <span className="text-zinc-500">CODE · 45%</span>
+        </div>
+      </div>
+    ),
   },
   {
-    image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=600&q=80",
-    title: "Distributed Hackathon Collaboration",
+    content: (
+      <div className="w-full h-full bg-[#09090b] border border-zinc-800 p-3.5 flex flex-col justify-between text-left select-none rounded-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <GoogleDocsLogo className="w-3.5 h-3.5" />
+            <span className="text-xs font-mono text-zinc-300 font-semibold">Pitch Deck</span>
+          </div>
+          <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-amber-400 font-bold">+1.20</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-white truncate">Final Sprint Presentation</p>
+          <p className="text-[10px] text-zinc-500 font-mono">18 Slides Verified</p>
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-zinc-900 text-[10px] text-zinc-400 font-mono">
+          <span>@dave</span>
+          <span className="text-zinc-500">PITCH · 20%</span>
+        </div>
+      </div>
+    ),
   },
 ];
 
@@ -459,28 +663,28 @@ export default function HomePage() {
           <DriftWall
             items={SHOWCASE_ITEMS}
             columns={5}
-            tileWidth={220}
-            tileHeight={145}
-            gap={18}
-            tilt={16}
-            turn={-10}
+            tileWidth={240}
+            tileHeight={135}
+            gap={16}
+            tilt={14}
+            turn={-8}
             perspective={1200}
-            depth={100}
-            speed={36}
+            depth={80}
+            speed={32}
             direction="up"
             variance={0.35}
             parallax={0.6}
             lift={64}
-            fade={0.65}
-            dim={0.55}
-            overlayColor="#000000"
+            fade={0.3}
+            dim={0.92}
+            overlayColor="transparent"
           />
         </div>
       </section>
 
-      {/* Interactive Bento Grid Features Section */}
-      <section id="features" className="relative z-10 py-24 px-6 max-w-7xl mx-auto">
-        <div className="text-center mb-16">
+      {/* Engineering Intelligence: Linear-Style Alternating Feature Panels (Option A) */}
+      <section id="features" className="relative z-10 py-24 px-6 max-w-7xl mx-auto space-y-28">
+        <div className="text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs font-medium uppercase tracking-wider mb-3">
             <Activity className="w-3.5 h-3.5" />
             Engineering Intelligence
@@ -488,22 +692,235 @@ export default function HomePage() {
           <h2 className="text-3xl sm:text-5xl font-bold text-white tracking-tight">
             Built for engineering integrity
           </h2>
-          <p className="text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto mt-3 leading-relaxed">
+          <p className="text-sm sm:text-base text-zinc-400 mt-3 leading-relaxed">
             Eliminate subjective grading, credit non-code contributions, detect team burnout, and build verifiable resumes with cryptographic proof.
           </p>
         </div>
 
-        {/* MagicBento Grid in Clean Obsidian Palette */}
-        <MagicBento
-          enableStars={false}
-          enableSpotlight={true}
-          enableBorderGlow={true}
-          enableTilt={true}
-          enableMagnetism={true}
-          clickEffect={true}
-          glowColor="255, 255, 255"
-          spotlightRadius={300}
-        />
+        {/* Panel 1: Multi-Signal Ingestion Engine */}
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="space-y-6">
+            <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-zinc-900 text-zinc-300 border border-zinc-800 text-xs font-mono font-semibold">
+              <GitBranch className="w-3.5 h-3.5 text-white" /> 01 / INGESTION ENGINE
+            </span>
+            <h3 className="text-2xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
+              Connect once. Ingest every deliverable in real-time.
+            </h3>
+            <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
+              Never fill out a status report again. TeamTrack AI connects directly to your GitHub repository, Figma design system, Loom walkthroughs, and Miro architecture—automatically attributing contributions with zero configuration.
+            </p>
+            <div className="space-y-3 pt-2 text-sm text-zinc-300">
+              <div className="flex items-start gap-3">
+                <Check className="w-4 h-4 text-white shrink-0 mt-1" />
+                <span><strong className="text-white">Instant Webhook Ingestion:</strong> Commits, pull requests, and code reviews sync in under 500ms.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Check className="w-4 h-4 text-white shrink-0 mt-1" />
+                <span><strong className="text-white">Non-Code Deliverable Parsing:</strong> Automatically attributes Figma frames, Loom demos, and Notion RFCs.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Check className="w-4 h-4 text-white shrink-0 mt-1" />
+                <span><strong className="text-white">Bot &amp; Noise Pruning:</strong> Automatically strips Dependabot bumps, formatting churn, and empty merges.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Panel 1 Interactive Widget */}
+          <div className="rounded-2xl bg-[#09090b] border border-zinc-800 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-mono text-zinc-300 font-semibold">LIVE WEBHOOK PIPE (INGESTING)</span>
+              </div>
+              <span className="text-[11px] font-mono text-zinc-500">latency: 24ms</span>
+            </div>
+
+            <div className="space-y-2.5 font-mono text-xs">
+              <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Github className="w-4 h-4 text-white shrink-0" />
+                  <div>
+                    <p className="text-white font-medium">PR #42: feat(auth): PKCE OAuth</p>
+                    <p className="text-[11px] text-zinc-500">+340 -12 lines · 8 files</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-white font-semibold">+1.20</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <FigmaLogo className="w-4 h-4 shrink-0" />
+                  <div>
+                    <p className="text-white font-medium">Design Tokens v2.4 (Dark Mode)</p>
+                    <p className="text-[11px] text-zinc-500">14 Component Frames Verified</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-white font-semibold">+1.60</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <LoomLogo className="w-4 h-4 shrink-0" />
+                  <div>
+                    <p className="text-white font-medium">Demo: Architecture &amp; API Spec</p>
+                    <p className="text-[11px] text-zinc-500">3m 12s Walkthrough</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-white font-semibold">+1.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel 2: Mathematical Trust & 50/50 Consensus Room (Alternated) */}
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Panel 2 Interactive Widget */}
+          <div className="rounded-2xl bg-[#09090b] border border-zinc-800 p-6 shadow-2xl space-y-5 order-2 lg:order-1">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+              <span className="text-xs font-mono text-zinc-300 font-semibold">ROLE WEIGHT CONFIGURATION</span>
+              <span className="text-[11px] font-mono text-zinc-500">normalized Σ = 100%</span>
+            </div>
+
+            {/* Role Weights Breakdown */}
+            <div className="space-y-2">
+              <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden flex">
+                <div className="bg-white h-full w-[45%]" />
+                <div className="bg-zinc-400 h-full w-[35%]" />
+                <div className="bg-zinc-600 h-full w-[20%]" />
+              </div>
+              <div className="flex items-center justify-between text-xs text-zinc-400 font-mono pt-1">
+                <span>Code (45%)</span>
+                <span>Design (35%)</span>
+                <span>QA &amp; Pitch (20%)</span>
+              </div>
+            </div>
+
+            {/* 50/50 Consensus Resolution Box */}
+            <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-white">Dispute Resolution Room</span>
+                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
+                  ✓ Co-Signed
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Shared deliverable: <strong>Auth Engine + UI Prototype</strong>
+              </p>
+              <div className="grid grid-cols-2 gap-3 pt-1 text-xs font-mono">
+                <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                  <p className="text-zinc-400">Sarvesh B.</p>
+                  <p className="text-white font-bold">50% Attribution</p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                  <p className="text-zinc-400">Alex Chen</p>
+                  <p className="text-white font-bold">50% Attribution</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Formula Preview */}
+            <div className="p-3 rounded-lg bg-black font-mono text-[11px] text-zinc-400 border border-zinc-800/80">
+              V_(m,e,c) = B_e × I_e × A_(m,e) × Q_e × D_e
+            </div>
+          </div>
+
+          <div className="space-y-6 order-1 lg:order-2">
+            <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-zinc-900 text-zinc-300 border border-zinc-800 text-xs font-mono font-semibold">
+              <Scale className="w-3.5 h-3.5 text-white" /> 02 / TRUST ENGINE
+            </span>
+            <h3 className="text-2xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
+              Zero black boxes. Just explainable math.
+            </h3>
+            <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
+              Traditional hackathons and engineering sprints grade teams by commit count—rewarding churn and ignoring non-code work. TeamTrack AI uses transparent category weights and a peer consensus room to guarantee fair attribution.
+            </p>
+            <div className="space-y-3 pt-2 text-sm text-zinc-300">
+              <div className="flex items-start gap-3">
+                <Check className="w-4 h-4 text-white shrink-0 mt-1" />
+                <span><strong className="text-white">Multi-Role Weighting:</strong> Tailor category weights for hackathons, design sprints, or core engineering.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Check className="w-4 h-4 text-white shrink-0 mt-1" />
+                <span><strong className="text-white">1-Click Dispute Consensus:</strong> Teammates agree on joint attribution with tamper-proof peer co-signing.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Check className="w-4 h-4 text-white shrink-0 mt-1" />
+                <span><strong className="text-white">100% Normalized Math:</strong> Every member score sums to $100\%$ with full mathematical auditability.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel 3: Cryptographic Proof & Team Health Radar */}
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="space-y-6">
+            <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-zinc-900 text-zinc-300 border border-zinc-800 text-xs font-mono font-semibold">
+              <Shield className="w-3.5 h-3.5 text-white" /> 03 / PROOF &amp; HEALTH
+            </span>
+            <h3 className="text-2xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
+              Public proof of work + pre-burnout team health.
+            </h3>
+            <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
+              Publish sprint deliverables into permanent cryptographic certificates for resumes, LinkedIn, and hackathon judges. Concurrently monitor workload velocity to prevent pre-deadline hero syndrome and burnout.
+            </p>
+            <div className="space-y-3 pt-2 text-sm text-zinc-300">
+              <div className="flex items-start gap-3">
+                <Check className="w-4 h-4 text-white shrink-0 mt-1" />
+                <span><strong className="text-white">Public /verify Certificates:</strong> Immutable SHA-256 proof certificates with verifiable provenance.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Check className="w-4 h-4 text-white shrink-0 mt-1" />
+                <span><strong className="text-white">Team Health &amp; Velocity Radar:</strong> Warns leads when one engineer carries &gt;70% workload at 3:00 AM.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Check className="w-4 h-4 text-white shrink-0 mt-1" />
+                <span><strong className="text-white">AI Sprint Changelogs:</strong> Synthesizes commit diffs into stakeholder-ready release digests in seconds.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Panel 3 Interactive Widget */}
+          <div className="rounded-2xl bg-[#09090b] border border-zinc-800 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-white" />
+                <span className="text-xs font-mono text-zinc-300 font-semibold">CERTIFICATE &amp; HEALTH MATRIX</span>
+              </div>
+              <span className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-300">
+                PROV_9f8a2c1
+              </span>
+            </div>
+
+            {/* Public Certificate Link Card */}
+            <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-white">Public Verification URL</span>
+                <span className="text-[10px] text-zinc-500 font-mono">SHA-256 SEALED</span>
+              </div>
+              <div className="p-2 rounded-lg bg-black border border-zinc-800 text-xs font-mono text-zinc-300 truncate">
+                https://teamtrack.ai/verify/rep_7f8a92e104bc
+              </div>
+            </div>
+
+            {/* Health Radar Card */}
+            <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-white">Team Health &amp; Velocity Radar</span>
+                <span className="text-emerald-400 font-semibold font-mono text-[11px]">94% Healthy</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+                <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                  <p className="text-zinc-500 text-[10px]">WORKLOAD BALANCE</p>
+                  <p className="text-white font-semibold">Even Distribution</p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                  <p className="text-zinc-500 text-[10px]">BURNOUT RADAR</p>
+                  <p className="text-emerald-400 font-semibold">0 Critical Alerts</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* How It Works 3-Step Walkthrough */}
