@@ -65,7 +65,7 @@ float random(vec2 st) {
 
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution.xy;
-  vec2 p = (gl_FragCoord.xy * 2.0 - uResolution.xy) / min(uResolution.x, uResolution.y);
+  vec2 p = (gl_FragCoord.xy * 2.0 - uResolution.xy) / max(uResolution.x, uResolution.y);
   
   // Smooth mouse ripple
   vec2 mouseDist = uv - uMouse;

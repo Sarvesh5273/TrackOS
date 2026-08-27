@@ -90,18 +90,11 @@ export default function HomePage() {
       {/* Precision Dark Dot Grid Background */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-70" />
 
-      {/* Solid Matte Header (NO glassmorphism), Centered Navbar */}
+      {/* Solid Matte Header with Centered PillNav */}
       <header className="sticky top-0 z-50 bg-[#09090b] border-b border-zinc-800 transition-all">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
-          {/* Left: Brand Logo & Title */}
-          <Link href="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center font-bold">
-              <BarChart3 className="w-4 h-4 text-black" />
-            </div>
-            <span className="text-sm font-semibold text-white tracking-tight hidden sm:inline-block">
-              TeamTrack AI
-            </span>
-          </Link>
+          {/* Spacer to balance right actions on desktop */}
+          <div className="w-24 hidden sm:block shrink-0" />
 
           {/* Center: Centered PillNav */}
           <div className="flex-1 flex justify-center">
@@ -141,8 +134,8 @@ export default function HomePage() {
 
       {/* Hero Section: Minimal, Punchy & Short */}
       <section className="relative z-10 px-6 pt-24 sm:pt-32 pb-20 max-w-5xl mx-auto text-center flex flex-col items-center">
-        {/* Full-Bleed Chroma Waves WebGL Shader Canvas across entire viewport width */}
-        <div className="absolute -top-16 bottom-0 left-1/2 -translate-x-1/2 w-screen pointer-events-none overflow-hidden opacity-75 z-0">
+        {/* Full-Bleed Responsive Chroma Waves WebGL Shader Canvas */}
+        <div className="absolute -top-20 inset-x-0 w-full min-w-full h-[125%] pointer-events-none overflow-hidden opacity-75 z-0">
           <ChromaWaves
             speed={0.4}
             frequency={0.35}
