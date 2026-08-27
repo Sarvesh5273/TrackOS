@@ -10,14 +10,14 @@
 }
 
 .pill-nav {
-  --nav-h: 44px;
-  --logo: 38px;
-  --pill-pad-x: 18px;
-  --pill-gap: 4px;
+  --nav-h: 42px;
+  --logo: 36px;
+  --pill-pad-x: 16px;
+  --pill-gap: 3px;
   width: max-content;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   box-sizing: border-box;
 }
 
@@ -35,27 +35,30 @@
   display: flex;
   align-items: center;
   height: var(--nav-h);
-  background: var(--base, #ff6b6b);
+  background: var(--base, #ffffff);
   border-radius: 9999px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .pill-logo {
   width: var(--nav-h);
   height: var(--nav-h);
   border-radius: 50%;
-  background: var(--base, #ff6b6b);
-  padding: 6px;
+  background: #121215;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
-  transition: transform 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
 .pill-logo:hover {
   transform: scale(1.05);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .pill-logo img,
@@ -87,16 +90,15 @@
   justify-content: center;
   height: 100%;
   padding: 0 var(--pill-pad-x);
-  background: var(--pill-bg, #16121f);
-  color: var(--pill-text, #f5f5f5);
+  background: var(--pill-bg, #09090b);
+  color: var(--pill-text, #a1a1aa);
   text-decoration: none;
   border-radius: 9999px;
   box-sizing: border-box;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 13px;
   line-height: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   cursor: pointer;
   position: relative;
@@ -109,7 +111,7 @@
   left: 50%;
   bottom: 0;
   border-radius: 50%;
-  background: var(--base, #ff6b6b);
+  background: var(--base, #ffffff);
   z-index: 1;
   display: block;
   pointer-events: none;
@@ -135,9 +137,10 @@
   position: absolute;
   left: 0;
   top: 0;
-  color: var(--hover-text, #fff);
+  color: var(--hover-text, #000000);
   z-index: 3;
   display: inline-block;
+  font-weight: 600;
   will-change: transform, opacity;
 }
 
@@ -147,9 +150,9 @@
   bottom: -4px;
   left: 50%;
   transform: translateX(-50%);
-  width: 8px;
-  height: 8px;
-  background: var(--base, #ff6b6b);
+  width: 6px;
+  height: 6px;
+  background: #ffffff;
   border-radius: 50px;
   z-index: 4;
 }
@@ -176,8 +179,8 @@
   width: var(--nav-h);
   height: var(--nav-h);
   border-radius: 50%;
-  background: var(--base, #ff6b6b);
-  border: none;
+  background: #121215;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   display: none;
   flex-direction: column;
   align-items: center;
@@ -195,8 +198,8 @@
 }
 
 .hamburger-line {
-  width: 16px;
-  height: 2px;
+  width: 15px;
+  height: 1.5px;
   background: #ffffff;
   border-radius: 1px;
   transition: all 0.2s ease;
@@ -208,12 +211,12 @@
   top: 3.5em;
   left: 0;
   right: 0;
-  background: rgba(22, 18, 31, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(12, 12, 14, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  border-radius: 18px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
   z-index: 998;
   opacity: 0;
   transform-origin: top center;
@@ -227,23 +230,23 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .mobile-menu-popover .mobile-menu-link {
   display: block;
-  padding: 12px 18px;
-  color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.04);
+  padding: 12px 16px;
+  color: #a1a1aa;
+  background-color: transparent;
   text-decoration: none;
   font-size: 14px;
-  font-weight: 600;
-  border-radius: 14px;
-  transition: all 0.2s ease;
+  font-weight: 500;
+  border-radius: 12px;
+  transition: all 0.15s ease;
 }
 
 .mobile-menu-popover .mobile-menu-link:hover,
 .mobile-menu-popover .mobile-menu-link.is-active {
-  background-color: var(--base, #ff6b6b);
+  background-color: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }

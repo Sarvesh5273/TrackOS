@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -19,62 +19,65 @@ import {
   Activity,
   Award,
   ChevronRight,
-  ExternalLink,
+  GitBranch,
+  Terminal,
+  Code2,
+  Cpu,
 } from "lucide-react";
 import SpecularButton from "@/components/reactbits/SpecularButton";
 import DriftWall from "@/components/reactbits/DriftWall";
 import MagicBento from "@/components/reactbits/MagicBento";
 import PillNav from "@/components/reactbits/PillNav";
 
-// Showcase items for the 3D DriftWall representing modern hackathon & engineering deliverables
+// High-contrast, dark-mode engineering & design artifact tiles for DriftWall
 const SHOWCASE_ITEMS = [
-  {
-    image: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=600&q=80",
-    title: "Figma Design System & Mobile Prototypes",
-  },
   {
     image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=600&q=80",
     title: "GitHub Webhook & Commit Engine",
-  },
-  {
-    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80",
-    title: "AI Release Digest & Sprint Changelog",
   },
   {
     image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=600&q=80",
     title: "SHA-256 Cryptographic Verification Seal",
   },
   {
+    image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80",
+    title: "Full-Stack TypeScript & Next.js Core",
+  },
+  {
     image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=600&q=80",
     title: "Team Health & Hero Syndrome Radar",
+  },
+  {
+    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80",
+    title: "AI Release Digest & Sprint Changelog",
+  },
+  {
+    image: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=600&q=80",
+    title: "Figma UI Systems & Design Specs",
+  },
+  {
+    image: "https://images.unsplash.com/photo-1558655146-d09347e92766?auto=format&fit=crop&w=600&q=80",
+    title: "Verified Contributor Achievement Badges",
   },
   {
     image: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80",
     title: "Peer Co-Signing & Trust Index",
   },
   {
-    image: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=600&q=80",
-    title: "50/50 Split Credit Consensus Room",
-  },
-  {
-    image: "https://images.unsplash.com/photo-1558655146-d09347e92766?auto=format&fit=crop&w=600&q=80",
-    title: "Design Maestro & Feature Architect Badges",
-  },
-  {
-    image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=600&q=80",
-    title: "Distributed Hackathon Collaboration",
+    image: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80",
+    title: "Real-Time Evidence Timeline",
   },
   {
     image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=600&q=80",
     title: "Normalized Multi-Role Attribution",
   },
   {
-    image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80",
-    title: "Full-Stack TypeScript & Next.js Core",
+    image: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=600&q=80",
+    title: "50/50 Split Credit Consensus Room",
   },
   {
-    image: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80",
-    title: "Real-Time Evidence Timeline",
+    image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=600&q=80",
+    title: "Distributed Hackathon Collaboration",
   },
 ];
 
@@ -82,14 +85,15 @@ export default function HomePage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-[#0d0b14] text-white selection:bg-coral-500 selection:text-white relative overflow-hidden font-sans">
-      {/* Background Ambience & Radial Glows */}
-      <div className="pointer-events-none absolute top-[-10%] left-[20%] w-[600px] h-[600px] bg-coral-500/10 rounded-full blur-[140px]" />
-      <div className="pointer-events-none absolute top-[30%] right-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[160px]" />
-      <div className="pointer-events-none absolute bottom-[10%] left-[-5%] w-[600px] h-[600px] bg-coral-600/10 rounded-full blur-[150px]" />
+    <div className="min-h-screen bg-[#000000] text-[#ededed] selection:bg-white selection:text-black relative overflow-hidden font-sans">
+      {/* Precision Dark Dot Grid Background */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-70" />
 
-      {/* Navigation Header with PillNav */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#0d0b14]/70 border-b border-white/5 transition-all">
+      {/* Subtle Top Center Lighting */}
+      <div className="pointer-events-none absolute top-[-150px] left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-white/[0.04] rounded-full blur-[120px]" />
+
+      {/* Floating PillNav Header */}
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/[0.06] transition-all">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <PillNav
             logo={
@@ -105,28 +109,28 @@ export default function HomePage() {
               { label: "Workflow", href: "#how-it-works" },
               { label: "Scoring", href: "#scoring" },
             ]}
-            baseColor="#ff6b6b"
-            pillColor="#181324"
-            pillTextColor="#d1d5db"
-            hoveredPillTextColor="#ffffff"
+            baseColor="#ffffff"
+            pillColor="#09090b"
+            pillTextColor="#a1a1aa"
+            hoveredPillTextColor="#000000"
           />
 
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="text-sm font-semibold text-gray-300 hover:text-white px-4 py-2 rounded-xl hover:bg-white/5 transition-colors hidden sm:inline-block"
+              className="text-sm font-medium text-zinc-400 hover:text-white px-4 py-2 rounded-xl hover:bg-white/[0.04] transition-colors hidden sm:inline-block"
             >
               Sign In
             </Link>
             <SpecularButton
               size="sm"
-              radius={14}
-              tint="#ff6b6b"
+              radius={12}
+              tint="#18181b"
               tintOpacity={0.9}
               textColor="#ffffff"
               lineColor="#ffffff"
-              baseColor="#802828"
-              intensity={1.3}
+              baseColor="#3f3f46"
+              intensity={1.2}
               onClick={() => router.push("/login")}
             >
               <span>Launch App</span>
@@ -137,43 +141,41 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative z-10 px-6 pt-16 pb-12 max-w-7xl mx-auto text-center flex flex-col items-center">
-        {/* Animated Pill Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-coral-400 text-xs font-semibold tracking-wide mb-8 backdrop-blur-md hover:border-coral-500/40 transition-colors">
-          <Sparkles className="w-3.5 h-3.5 text-coral-400 animate-pulse" />
-          <span>Next-Gen Hackathon &amp; Team Contribution Engine</span>
-          <ChevronRight className="w-3 h-3 text-gray-400" />
+      <section className="relative z-10 px-6 pt-20 pb-16 max-w-7xl mx-auto text-center flex flex-col items-center">
+        {/* Crisp Monochromatic Pill Badge */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.03] border border-white/10 text-zinc-300 text-xs font-medium tracking-wide mb-8 backdrop-blur-md hover:border-white/20 transition-colors">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>v1.0 · Tamper-Proof Proof-of-Work Engine</span>
+          <ChevronRight className="w-3 h-3 text-zinc-500" />
         </div>
 
         {/* Hero Title */}
-        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] max-w-5xl mb-6">
-          Fair Contribution Tracking for{" "}
-          <span className="bg-gradient-to-r from-coral-400 via-rose-400 to-amber-300 bg-clip-text text-transparent">
-            High-Velocity Teams
-          </span>
+        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] max-w-5xl mb-6 text-white">
+          Fair contribution tracking
+          <br />
+          <span className="text-zinc-400">for high-velocity teams.</span>
         </h1>
 
         {/* Subtitle */}
-        <p className="text-lg sm:text-xl text-gray-300 max-w-2xl mb-10 leading-relaxed font-normal">
-          From GitHub commits and PR merges to Figma design systems and pitch decks. 
-          Generate tamper-proof cryptographic certificates, AI release notes, and fair normalized scores.
+        <p className="text-base sm:text-lg text-zinc-400 max-w-2xl mb-10 leading-relaxed font-normal">
+          Ingest GitHub commits, Figma designs, and manual deliverables into explainable scores. 
+          Generate cryptographic SHA-256 contribution certificates and AI changelogs with zero bias.
         </p>
 
-        {/* CTAs with SpecularButton */}
+        {/* Primary CTAs */}
         <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
           <SpecularButton
             size="lg"
-            radius={16}
-            tint="#ff6b6b"
-            tintOpacity={0.9}
+            radius={14}
+            tint="#18181b"
+            tintOpacity={0.95}
             textColor="#ffffff"
             lineColor="#ffffff"
-            baseColor="#802828"
+            baseColor="#3f3f46"
             intensity={1.4}
-            speed={0.4}
+            speed={0.35}
             followMouse={true}
             onClick={() => router.push("/login")}
-            className="shadow-2xl shadow-coral-500/20"
           >
             <span>Launch Workspace</span>
             <ArrowRight className="w-4 h-4 ml-1" />
@@ -181,52 +183,52 @@ export default function HomePage() {
 
           <Link
             href="/login"
-            className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-base transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-medium text-sm transition-all hover:scale-[1.01] active:scale-[0.99]"
           >
-            <Github className="w-5 h-5 text-gray-200" />
+            <Github className="w-4 h-4 text-zinc-300" />
             <span>Continue with GitHub</span>
           </Link>
         </div>
 
-        {/* Live Proof Badges Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl w-full pt-4 border-t border-white/5 text-left">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-coral-500/10 text-coral-400 flex items-center justify-center">
+        {/* Monochromatic Live Proof Metrics Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl w-full pt-6 border-t border-white/[0.06] text-left">
+          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.06] text-white flex items-center justify-center">
               <Zap className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-white">Real-Time Sync</p>
-              <p className="text-[11px] text-gray-400">Webhooks &amp; Auto-Mapping</p>
+              <p className="text-xs font-semibold text-white">Instant Sync</p>
+              <p className="text-[11px] text-zinc-400">GitHub Webhooks</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
+          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.06] text-white flex items-center justify-center">
               <Scale className="w-4 h-4" />
             </div>
             <div>
               <p className="text-xs font-semibold text-white">Multi-Role Model</p>
-              <p className="text-[11px] text-gray-400">Dev, Design, QA &amp; Slides</p>
+              <p className="text-[11px] text-zinc-400">100% Normalized</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.06] text-emerald-400 flex items-center justify-center">
               <Shield className="w-4 h-4" />
             </div>
             <div>
               <p className="text-xs font-semibold text-white">SHA-256 Proof</p>
-              <p className="text-[11px] text-gray-400">Tamper-Proof Verification</p>
+              <p className="text-[11px] text-zinc-400">Public Certificates</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.06] text-white flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
               <p className="text-xs font-semibold text-white">AI Changelog</p>
-              <p className="text-[11px] text-gray-400">1-Click Release Digests</p>
+              <p className="text-[11px] text-zinc-400">Release Digests</p>
             </div>
           </div>
         </div>
@@ -235,37 +237,37 @@ export default function HomePage() {
       {/* 3D DriftWall Showcase Section */}
       <section id="wall" className="relative z-10 py-16 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-8">
-          <span className="text-xs font-semibold text-coral-400 uppercase tracking-widest">
-            Live Deliverables Stream
+          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">
+            Deliverables Stream
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold mt-2 text-white">
-            Every Contribution Captured in 3D
+          <h2 className="text-2xl sm:text-4xl font-bold mt-1 text-white tracking-tight">
+            Every contribution verified in 3D
           </h2>
-          <p className="text-sm text-gray-400 max-w-xl mx-auto mt-2">
-            Move your cursor to tilt and navigate the stream of commits, Figma artboards, QA tests, and verifiable badges.
+          <p className="text-xs sm:text-sm text-zinc-400 max-w-xl mx-auto mt-2">
+            Tilt and navigate the live stream of commits, Figma design tokens, testing reports, and cryptographic seals.
           </p>
         </div>
 
         {/* DriftWall Viewport Container */}
-        <div className="w-full h-[520px] rounded-3xl border border-white/10 bg-[#060010] shadow-2xl relative overflow-hidden">
+        <div className="w-full h-[520px] rounded-2xl border border-white/[0.08] bg-[#050505] shadow-2xl relative overflow-hidden">
           <DriftWall
             items={SHOWCASE_ITEMS}
             columns={5}
             tileWidth={220}
             tileHeight={145}
-            gap={20}
-            tilt={18}
-            turn={-12}
-            perspective={1100}
+            gap={18}
+            tilt={16}
+            turn={-10}
+            perspective={1200}
             depth={100}
-            speed={38}
+            speed={36}
             direction="up"
-            variance={0.4}
-            parallax={0.7}
-            lift={70}
+            variance={0.35}
+            parallax={0.6}
+            lift={64}
             fade={0.65}
-            dim={0.6}
-            overlayColor="#0d0b14"
+            dim={0.55}
+            overlayColor="#000000"
           />
         </div>
       </section>
@@ -273,71 +275,70 @@ export default function HomePage() {
       {/* Interactive Bento Grid Features Section */}
       <section id="features" className="relative z-10 py-24 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-coral-500/10 border border-coral-500/20 text-coral-400 text-xs font-semibold uppercase tracking-wider mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-zinc-300 text-xs font-medium uppercase tracking-wider mb-3">
             <Activity className="w-3.5 h-3.5" />
             Engineering Intelligence
           </div>
-          <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
-            Designed for Fair Hackathons &amp; Teams
+          <h2 className="text-3xl sm:text-5xl font-bold text-white tracking-tight">
+            Built for engineering integrity
           </h2>
-          <p className="text-base text-gray-400 max-w-2xl mx-auto mt-4 leading-relaxed">
-            Eliminate bias, capture invisible non-code labor, detect team burnout, and build tamper-proof resumes with cryptographic evidence.
+          <p className="text-sm sm:text-base text-zinc-400 max-w-2xl mx-auto mt-3 leading-relaxed">
+            Eliminate subjective grading, credit non-code contributions, detect team burnout, and build verifiable resumes with cryptographic proof.
           </p>
         </div>
 
-        {/* MagicBento Grid with GSAP Spotlight & Particle Stars */}
+        {/* MagicBento Grid in Clean Obsidian Palette */}
         <MagicBento
-          enableStars={true}
+          enableStars={false}
           enableSpotlight={true}
           enableBorderGlow={true}
           enableTilt={true}
           enableMagnetism={true}
           clickEffect={true}
-          glowColor="255, 107, 107"
-          spotlightRadius={320}
-          particleCount={14}
+          glowColor="255, 255, 255"
+          spotlightRadius={300}
         />
       </section>
 
       {/* How It Works 3-Step Walkthrough */}
-      <section id="how-it-works" className="relative z-10 py-20 px-6 max-w-7xl mx-auto border-t border-white/5">
+      <section id="how-it-works" className="relative z-10 py-20 px-6 max-w-7xl mx-auto border-t border-white/[0.06]">
         <div className="text-center mb-16">
-          <span className="text-xs font-semibold text-coral-400 uppercase tracking-widest">
-            Workflow
+          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">
+            Architecture
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mt-2">
-            From First Commit to Final Certificate in 3 Steps
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">
+            How TeamTrack AI operates
           </h2>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="p-8 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-coral-500/30 transition-all">
-            <div className="w-12 h-12 rounded-xl bg-coral-500/10 text-coral-400 flex items-center justify-center font-bold text-xl mb-6">
-              1
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="p-8 rounded-2xl bg-[#09090b] border border-white/[0.08] hover:border-white/20 transition-all">
+            <div className="w-10 h-10 rounded-xl bg-white/[0.06] text-white flex items-center justify-center font-semibold text-sm mb-6 border border-white/10">
+              01
             </div>
-            <h3 className="text-xl font-bold text-white mb-3">Connect Sources</h3>
-            <p className="text-sm text-gray-400 leading-relaxed">
-              Connect your GitHub repository for instant commit and PR ingestion. Paste Figma, Loom, Google Slides, or Miro links to credit non-code contributions.
+            <h3 className="text-lg font-semibold text-white mb-2">Automated Ingestion</h3>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              Connect your GitHub repository for automatic commit and PR sync. Attach Figma, Loom, Google Slides, or Miro deliverables with automatic metadata unfurling.
             </p>
           </div>
 
-          <div className="p-8 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-coral-500/30 transition-all">
-            <div className="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold text-xl mb-6">
-              2
+          <div className="p-8 rounded-2xl bg-[#09090b] border border-white/[0.08] hover:border-white/20 transition-all">
+            <div className="w-10 h-10 rounded-xl bg-white/[0.06] text-white flex items-center justify-center font-semibold text-sm mb-6 border border-white/10">
+              02
             </div>
-            <h3 className="text-xl font-bold text-white mb-3">Explainable Scoring</h3>
-            <p className="text-sm text-gray-400 leading-relaxed">
-              The transparent mathematical formula weights effort, quality, impact, and peer co-signs across each category without black-box guessing.
+            <h3 className="text-lg font-semibold text-white mb-2">Explainable Scoring</h3>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              A transparent formula applies category weights, effort bands, quality factors, and peer co-signing without black-box machine learning guesswork.
             </p>
           </div>
 
-          <div className="p-8 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-coral-500/30 transition-all">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-xl mb-6">
-              3
+          <div className="p-8 rounded-2xl bg-[#09090b] border border-white/[0.08] hover:border-white/20 transition-all">
+            <div className="w-10 h-10 rounded-xl bg-white/[0.06] text-white flex items-center justify-center font-semibold text-sm mb-6 border border-white/10">
+              03
             </div>
-            <h3 className="text-xl font-bold text-white mb-3">Verify &amp; Showcase</h3>
-            <p className="text-sm text-gray-400 leading-relaxed">
-              Publish reports to generate a public cryptographic proof certificate with achievement badges to add directly to resumes and LinkedIn.
+            <h3 className="text-lg font-semibold text-white mb-2">Cryptographic Proof</h3>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              Publish provisional reports to generate permanent public URLs with SHA-256 verification hashes and earned contributor achievement badges.
             </p>
           </div>
         </div>
@@ -345,27 +346,23 @@ export default function HomePage() {
 
       {/* Transparent Formula Callout Section */}
       <section id="scoring" className="relative z-10 py-16 px-6 max-w-5xl mx-auto">
-        <div className="rounded-3xl bg-gradient-to-br from-[#1a1427] to-[#120f1a] border border-white/10 p-8 sm:p-12 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <Scale className="w-48 h-48 text-white" />
-          </div>
+        <div className="rounded-2xl bg-[#09090b] border border-white/[0.08] p-8 sm:p-12 shadow-2xl relative overflow-hidden">
           <div className="relative z-10">
-            <div className="flex items-center gap-2 text-coral-400 text-xs font-semibold uppercase tracking-wider mb-3">
-              <Lock className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">
+              <Lock className="w-3.5 h-3.5" />
               100% Explainable &amp; Auditable
             </div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-              Mathematical Trust Model
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 tracking-tight">
+              Mathematical scoring formula
             </h2>
-            <p className="text-sm text-gray-300 mb-6 max-w-2xl leading-relaxed">
-              Every score is computed with transparent mathematical rigor. No arbitrary algorithms:
+            <p className="text-sm text-zinc-400 mb-6 max-w-2xl leading-relaxed">
+              Every member score is calculated transparently using verifiable mathematical equations:
             </p>
-            <div className="bg-[#0c0914] rounded-xl p-5 border border-white/10 font-mono text-xs sm:text-sm text-coral-300 overflow-x-auto">
-              <code>V_(m,e,c) = B_e × I_e × A_(m,e) × Q_e × D_e</code>
-              <br />
-              <code className="text-gray-400">
+            <div className="bg-[#050505] rounded-xl p-5 border border-white/[0.08] font-mono text-xs sm:text-sm text-zinc-300 space-y-2 overflow-x-auto">
+              <p className="text-zinc-200">V_(m,e,c) = B_e × I_e × A_(m,e) × Q_e × D_e</p>
+              <p className="text-zinc-400">
                 S_m = 100 × Σ_c(W_c × N_(m,c)) / Σ_jΣ_c(W_c × N_(j,c))
-              </code>
+              </p>
             </div>
           </div>
         </div>
@@ -373,64 +370,64 @@ export default function HomePage() {
 
       {/* High-Impact Bottom Call to Action */}
       <section className="relative z-10 py-24 px-6 text-center max-w-5xl mx-auto">
-        <div className="p-12 sm:p-16 rounded-3xl bg-gradient-to-b from-coral-950/40 via-[#151121] to-[#0d0b14] border border-coral-500/20 shadow-2xl relative overflow-hidden">
-          <div className="pointer-events-none absolute top-[-50%] left-[25%] w-[400px] h-[400px] bg-coral-500/20 rounded-full blur-[120px]" />
+        <div className="p-12 sm:p-16 rounded-2xl bg-[#09090b] border border-white/[0.08] shadow-2xl relative overflow-hidden">
+          <div className="pointer-events-none absolute top-[-50%] left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-white/[0.03] rounded-full blur-[100px]" />
 
-          <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mb-6">
-            Ready to Give Every Teammate Fair Credit?
+          <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">
+            Give every teammate verified credit.
           </h2>
-          <p className="text-base sm:text-lg text-gray-300 max-w-xl mx-auto mb-10 leading-relaxed">
-            Create your workspace in seconds. Connect your GitHub repository and start tracking verifiable contributions today.
+          <p className="text-sm sm:text-base text-zinc-400 max-w-lg mx-auto mb-8 leading-relaxed">
+            Create your workspace in seconds. Connect your GitHub repository and start generating tamper-proof proof of work today.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
             <SpecularButton
               size="lg"
-              radius={18}
-              tint="#ff6b6b"
+              radius={14}
+              tint="#18181b"
               tintOpacity={0.95}
               textColor="#ffffff"
               lineColor="#ffffff"
-              baseColor="#8f2d2d"
-              intensity={1.5}
-              speed={0.4}
+              baseColor="#3f3f46"
+              intensity={1.4}
+              speed={0.35}
               onClick={() => router.push("/login")}
             >
               <span>Get Started Free</span>
-              <ArrowRight className="w-5 h-5 ml-1" />
+              <ArrowRight className="w-4 h-4 ml-1" />
             </SpecularButton>
 
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-base transition-all"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-medium text-sm transition-all"
             >
-              <Github className="w-5 h-5 text-gray-300" />
+              <Github className="w-4 h-4 text-zinc-300" />
               <span>Sign In with GitHub</span>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 py-12 px-6 max-w-7xl mx-auto text-sm text-gray-400 flex flex-col sm:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-coral-500 flex items-center justify-center">
-            <BarChart3 className="w-3.5 h-3.5 text-white" />
+      {/* Minimalist Monochrome Footer */}
+      <footer className="relative z-10 border-t border-white/[0.06] py-12 px-6 max-w-7xl mx-auto text-xs text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-2.5">
+          <div className="w-5 h-5 rounded-md bg-white text-black flex items-center justify-center">
+            <BarChart3 className="w-3 h-3" />
           </div>
-          <span className="font-bold text-white">TeamTrack AI</span>
-          <span className="text-xs text-gray-500">© 2026</span>
+          <span className="font-semibold text-zinc-200">TeamTrack AI</span>
+          <span className="text-zinc-600">· Proof of Work OS</span>
         </div>
 
-        <div className="flex items-center gap-6 text-xs">
+        <div className="flex items-center gap-6">
           <span className="flex items-center gap-1.5 text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            All Systems Operational
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Systems Operational
           </span>
-          <a href="#scoring" className="hover:text-white transition-colors">
+          <a href="#scoring" className="hover:text-zinc-300 transition-colors">
             Scoring Policy
           </a>
-          <Link href="/login" className="hover:text-white transition-colors">
-            Workspace Login
+          <Link href="/login" className="hover:text-zinc-300 transition-colors">
+            Login
           </Link>
         </div>
       </footer>

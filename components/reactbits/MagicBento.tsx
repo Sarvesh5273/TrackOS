@@ -4,9 +4,9 @@ import React, { useRef, useEffect, useCallback, useState } from "react";
 import { gsap } from "gsap";
 import "./MagicBento.css";
 
-const DEFAULT_PARTICLE_COUNT = 12;
+const DEFAULT_PARTICLE_COUNT = 8;
 const DEFAULT_SPOTLIGHT_RADIUS = 300;
-const DEFAULT_GLOW_COLOR = "255, 107, 107";
+const DEFAULT_GLOW_COLOR = "255, 255, 255";
 const MOBILE_BREAKPOINT = 768;
 
 export interface BentoCardData {
@@ -19,37 +19,37 @@ export interface BentoCardData {
 
 const DEFAULT_CARDS: BentoCardData[] = [
   {
-    color: "#16121f",
+    color: "#09090b",
     title: "Real-time GitHub Webhooks",
     description: "Instant ingestion of commits, PR merges, reviews, and issues with automatic author-to-member mapping and deduplication.",
     label: "⚡ Instant Sync",
   },
   {
-    color: "#16121f",
+    color: "#09090b",
     title: "Multi-Role Fair Scoring",
     description: "Configurable category weights across Dev, Design, QA, Presentation, and Research with multi-collaborator attribution.",
     label: "⚖️ 100% Normalized",
   },
   {
-    color: "#16121f",
+    color: "#09090b",
     title: "AI Sprint Changelog Engine",
     description: "Summarize thousands of lines of diffs into clean stakeholder release notes & executive digests in one click.",
     label: "✨ AI Changelog",
   },
   {
-    color: "#16121f",
+    color: "#09090b",
     title: "Proof-of-Contribution Certificates",
     description: "Tamper-proof public verification URLs with SHA-256 cryptographic hashes & earned contributor achievement badges.",
     label: "🛡️ Public Proof",
   },
   {
-    color: "#16121f",
+    color: "#09090b",
     title: "Peer Co-Signing & Disputes",
     description: "Interactive consensus room to propose 50/50 joint credit splits, verify manual evidence, and resolve disagreements.",
     label: "🤝 Consensus Room",
   },
   {
-    color: "#16121f",
+    color: "#09090b",
     title: "Team Health & Hero Syndrome",
     description: "Detect single points of failure, burnout velocity, and unreviewed commit spikes before submission deadlines.",
     label: "📈 Team Health Radar",
