@@ -90,93 +90,97 @@ export default function HomePage() {
       {/* Precision Dark Dot Grid Background */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-70" />
 
-      {/* Floating PillNav Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/[0.06] transition-all">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <PillNav
-            logo={
-              <div className="w-5 h-5 flex items-center justify-center text-white">
-                <BarChart3 className="w-4 h-4 text-white" />
-              </div>
-            }
-            logoAlt="TeamTrack AI Logo"
-            items={[
-              { label: "Overview", href: "/" },
-              { label: "Deliverables", href: "#wall" },
-              { label: "Features", href: "#features" },
-              { label: "Workflow", href: "#how-it-works" },
-              { label: "Scoring", href: "#scoring" },
-            ]}
-            baseColor="#ffffff"
-            pillColor="#09090b"
-            pillTextColor="#a1a1aa"
-            hoveredPillTextColor="#000000"
-          />
+      {/* Solid Matte Header (NO glassmorphism), Centered Navbar */}
+      <header className="sticky top-0 z-50 bg-[#09090b] border-b border-zinc-800 transition-all">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
+          {/* Left: Brand Logo & Title */}
+          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center font-bold">
+              <BarChart3 className="w-4 h-4 text-black" />
+            </div>
+            <span className="text-sm font-semibold text-white tracking-tight hidden sm:inline-block">
+              TeamTrack AI
+            </span>
+          </Link>
 
-          <div className="flex items-center gap-3">
+          {/* Center: Centered PillNav */}
+          <div className="flex-1 flex justify-center">
+            <PillNav
+              items={[
+                { label: "Overview", href: "/" },
+                { label: "Deliverables", href: "#wall" },
+                { label: "Features", href: "#features" },
+                { label: "Workflow", href: "#how-it-works" },
+                { label: "Scoring", href: "#scoring" },
+              ]}
+              baseColor="#ffffff"
+              pillColor="#18181b"
+              pillTextColor="#a1a1aa"
+              hoveredPillTextColor="#000000"
+            />
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-3 shrink-0">
             <Link
               href="/login"
-              className="text-sm font-medium text-zinc-400 hover:text-white px-4 py-2 rounded-xl hover:bg-white/[0.04] transition-colors hidden sm:inline-block"
+              className="text-xs font-medium text-zinc-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-zinc-800 transition-colors hidden sm:inline-block"
             >
               Sign In
             </Link>
-            <SpecularButton
-              size="sm"
-              radius={12}
-              tint="#18181b"
-              tintOpacity={0.9}
-              textColor="#ffffff"
-              lineColor="#ffffff"
-              baseColor="#3f3f46"
-              intensity={1.2}
+            <button
               onClick={() => router.push("/login")}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-black text-xs font-semibold hover:bg-zinc-200 transition-colors"
             >
               <span>Launch App</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </SpecularButton>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Hero Section with Chroma Waves Background */}
-      <section className="relative z-10 px-6 pt-24 pb-20 max-w-7xl mx-auto text-center flex flex-col items-center">
-        {/* Chroma Waves WebGL Shader Canvas matching React Bits Pro */}
-        <div className="absolute inset-0 -top-28 -bottom-16 pointer-events-none overflow-hidden opacity-85 z-0">
+      {/* Hero Section with Subdued Ambient Waves & High Contrast Text */}
+      <section className="relative z-10 px-6 pt-20 pb-20 max-w-7xl mx-auto text-center flex flex-col items-center">
+        {/* Subdued Chroma Waves WebGL Shader Background Texture */}
+        <div className="absolute inset-0 -top-16 -bottom-10 pointer-events-none overflow-hidden opacity-30 z-0">
           <ChromaWaves
-            speed={0.45}
-            frequency={0.35}
-            distortion={1.5}
-            grain={0.065}
-            color1="#ffffff"
-            color2="#8B5CF6"
-            color3="#050408"
-            opacity={0.9}
+            speed={0.2}
+            frequency={0.28}
+            distortion={1.1}
+            grain={0.03}
+            color1="#a1a1aa"
+            color2="#4c1d95"
+            color3="#000000"
+            opacity={0.35}
             interactive={true}
           />
         </div>
 
+        {/* Ambient Dark Gradient Veil for Maximum Readability */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.85)_0%,rgba(0,0,0,0.5)_60%,transparent_100%)] pointer-events-none z-[1]" />
+
         {/* Crisp Monochromatic Pill Badge */}
-        <div className="relative z-10 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.03] border border-white/10 text-zinc-300 text-xs font-medium tracking-wide mb-8 backdrop-blur-md hover:border-white/20 transition-colors">
+        <div className="relative z-10 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-700 text-zinc-200 text-xs font-medium tracking-wide mb-8 shadow-md hover:border-zinc-500 transition-colors">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span>v1.0 · Tamper-Proof Proof-of-Work Engine</span>
-          <ChevronRight className="w-3 h-3 text-zinc-500" />
+          <ChevronRight className="w-3 h-3 text-zinc-400" />
         </div>
 
-        {/* Hero Title */}
-        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] max-w-5xl mb-6 text-white">
+        {/* Hero Title with Deep Shadow for Crystal Clear Visibility */}
+        <h1 className="relative z-10 text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] max-w-5xl mb-6 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)]">
           Fair contribution tracking
           <br />
-          <span className="text-zinc-400">for high-velocity teams.</span>
+          <span className="text-zinc-300">for high-velocity teams.</span>
         </h1>
 
-        {/* Subtitle */}
-        <p className="text-base sm:text-lg text-zinc-400 max-w-2xl mb-10 leading-relaxed font-normal">
+        {/* Subtitle with High Contrast */}
+        <p className="relative z-10 text-base sm:text-lg text-zinc-200 max-w-2xl mb-10 leading-relaxed font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
           Ingest GitHub commits, Figma designs, and manual deliverables into explainable scores. 
           Generate cryptographic SHA-256 contribution certificates and AI changelogs with zero bias.
         </p>
 
         {/* Primary CTAs */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
+        <div className="relative z-10 flex flex-wrap items-center justify-center gap-4 mb-16">
           <SpecularButton
             size="lg"
             radius={14}
@@ -196,17 +200,17 @@ export default function HomePage() {
 
           <Link
             href="/login"
-            className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-medium text-sm transition-all hover:scale-[1.01] active:scale-[0.99]"
+            className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-medium text-sm transition-all shadow-lg"
           >
             <Github className="w-4 h-4 text-zinc-300" />
             <span>Continue with GitHub</span>
           </Link>
         </div>
 
-        {/* Monochromatic Live Proof Metrics Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl w-full pt-6 border-t border-white/[0.06] text-left">
-          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <div className="w-8 h-8 rounded-lg bg-white/[0.06] text-white flex items-center justify-center">
+        {/* Monochromatic Live Proof Metrics Bar with High Contrast */}
+        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl w-full pt-6 border-t border-zinc-800 text-left bg-black/40 p-4 rounded-2xl">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 shadow">
+            <div className="w-8 h-8 rounded-lg bg-zinc-800 text-white flex items-center justify-center">
               <Zap className="w-4 h-4" />
             </div>
             <div>
@@ -215,8 +219,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <div className="w-8 h-8 rounded-lg bg-white/[0.06] text-white flex items-center justify-center">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 shadow">
+            <div className="w-8 h-8 rounded-lg bg-zinc-800 text-white flex items-center justify-center">
               <Scale className="w-4 h-4" />
             </div>
             <div>
@@ -225,8 +229,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <div className="w-8 h-8 rounded-lg bg-white/[0.06] text-emerald-400 flex items-center justify-center">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 shadow">
+            <div className="w-8 h-8 rounded-lg bg-zinc-800 text-emerald-400 flex items-center justify-center">
               <Shield className="w-4 h-4" />
             </div>
             <div>
@@ -235,8 +239,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <div className="w-8 h-8 rounded-lg bg-white/[0.06] text-white flex items-center justify-center">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 shadow">
+            <div className="w-8 h-8 rounded-lg bg-zinc-800 text-white flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>

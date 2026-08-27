@@ -165,16 +165,7 @@ export default function PillNav({
   };
 
   const handleLogoEnter = () => {
-    const img = logoImgRef.current;
-    if (!img) return;
-    logoTweenRef.current?.kill();
-    gsap.set(img, { rotate: 0 });
-    logoTweenRef.current = gsap.to(img, {
-      rotate: 360,
-      duration: 0.3,
-      ease,
-      overwrite: "auto",
-    });
+    // Logo spinning animation removed per user request
   };
 
   const toggleMobileMenu = () => {
