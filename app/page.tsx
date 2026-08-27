@@ -28,6 +28,7 @@ import SpecularButton from "@/components/reactbits/SpecularButton";
 import DriftWall from "@/components/reactbits/DriftWall";
 import MagicBento from "@/components/reactbits/MagicBento";
 import PillNav from "@/components/reactbits/PillNav";
+import ChromaWaves from "@/components/reactbits/ChromaWaves";
 
 // High-contrast, dark-mode engineering & design artifact tiles for DriftWall
 const SHOWCASE_ITEMS = [
@@ -89,9 +90,6 @@ export default function HomePage() {
       {/* Precision Dark Dot Grid Background */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-70" />
 
-      {/* Subtle Top Center Lighting */}
-      <div className="pointer-events-none absolute top-[-150px] left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-white/[0.04] rounded-full blur-[120px]" />
-
       {/* Floating PillNav Header */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/[0.06] transition-all">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -140,10 +138,25 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="relative z-10 px-6 pt-20 pb-16 max-w-7xl mx-auto text-center flex flex-col items-center">
+      {/* Hero Section with Chroma Waves Background */}
+      <section className="relative z-10 px-6 pt-24 pb-20 max-w-7xl mx-auto text-center flex flex-col items-center">
+        {/* Chroma Waves WebGL Shader Canvas */}
+        <div className="absolute inset-0 -top-20 -bottom-10 pointer-events-none overflow-hidden opacity-50 z-0">
+          <ChromaWaves
+            speed={0.2}
+            frequency={1.5}
+            amplitude={0.4}
+            chroma={0.015}
+            color1="#000000"
+            color2="#71717a"
+            color3="#18181b"
+            opacity={0.75}
+            interactive={true}
+          />
+        </div>
+
         {/* Crisp Monochromatic Pill Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.03] border border-white/10 text-zinc-300 text-xs font-medium tracking-wide mb-8 backdrop-blur-md hover:border-white/20 transition-colors">
+        <div className="relative z-10 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.03] border border-white/10 text-zinc-300 text-xs font-medium tracking-wide mb-8 backdrop-blur-md hover:border-white/20 transition-colors">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span>v1.0 · Tamper-Proof Proof-of-Work Engine</span>
           <ChevronRight className="w-3 h-3 text-zinc-500" />
