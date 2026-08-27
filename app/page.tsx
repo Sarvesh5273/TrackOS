@@ -140,9 +140,9 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section: Minimal, Punchy & Short */}
-      <section className="relative z-10 px-6 pt-24 sm:pt-28 pb-16 max-w-5xl mx-auto text-center flex flex-col items-center">
-        {/* Chroma Waves WebGL Shader Canvas matching React Bits Pro */}
-        <div className="absolute inset-0 -top-24 -bottom-16 pointer-events-none overflow-hidden opacity-65 z-0">
+      <section className="relative z-10 px-6 pt-24 sm:pt-32 pb-20 max-w-5xl mx-auto text-center flex flex-col items-center">
+        {/* Full-Bleed Chroma Waves WebGL Shader Canvas across entire viewport width */}
+        <div className="absolute -top-16 bottom-0 left-1/2 -translate-x-1/2 w-screen pointer-events-none overflow-hidden opacity-75 z-0">
           <ChromaWaves
             speed={0.4}
             frequency={0.35}
@@ -151,13 +151,13 @@ export default function HomePage() {
             color1="#ffffff"
             color2="#8B5CF6"
             color3="#050408"
-            opacity={0.8}
+            opacity={0.85}
             interactive={true}
           />
         </div>
 
         {/* Ambient Dark Gradient Veil for Maximum Readability */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.75)_0%,rgba(0,0,0,0.35)_60%,transparent_100%)] pointer-events-none z-[1]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.7)_0%,rgba(0,0,0,0.3)_60%,transparent_100%)] pointer-events-none z-[1]" />
 
         {/* Crisp Monochromatic Pill Badge */}
         <div className="relative z-10 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs font-medium tracking-wide mb-8 shadow-sm hover:border-zinc-500 transition-colors">

@@ -101,12 +101,9 @@ void main() {
     col += grain;
   }
 
-  // Smooth vertical mask for seamless blending
-  float verticalFade = smoothstep(0.0, 0.25, uv.y) * smoothstep(1.0, 0.75, uv.y);
-  float horizontalFade = smoothstep(0.0, 0.15, uv.x) * smoothstep(1.0, 0.85, uv.x);
-  float mask = verticalFade * horizontalFade;
-
-  fragColor = vec4(clamp(col, 0.0, 1.0), uOpacity * mask);
+  // Smooth bottom fade into next section
+  float bottomFade = smoothstep(0.0, 0.12, uv.y);
+  fragColor = vec4(clamp(col, 0.0, 1.0), uOpacity * bottomFade);
 }
 `;
 
