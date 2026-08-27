@@ -132,10 +132,10 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Hero Section: Minimal, Punchy & Short */}
-      <section className="relative z-10 px-6 pt-24 sm:pt-32 pb-20 max-w-5xl mx-auto text-center flex flex-col items-center">
-        {/* Full-Bleed Responsive Chroma Waves WebGL Shader Canvas */}
-        <div className="absolute -top-20 inset-x-0 w-full min-w-full h-[125%] pointer-events-none overflow-hidden opacity-75 z-0">
+      {/* Hero Section: Full-Width Section with Edge-to-Edge Chroma Waves Background */}
+      <section className="relative z-10 w-full overflow-hidden pt-24 sm:pt-32 pb-24">
+        {/* Full-Bleed Chroma Waves Canvas across 100% of browser window */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-75 z-0">
           <ChromaWaves
             speed={0.4}
             frequency={0.35}
@@ -152,51 +152,54 @@ export default function HomePage() {
         {/* Ambient Dark Gradient Veil for Maximum Readability */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.7)_0%,rgba(0,0,0,0.3)_60%,transparent_100%)] pointer-events-none z-[1]" />
 
-        {/* Crisp Monochromatic Pill Badge */}
-        <div className="relative z-10 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs font-medium tracking-wide mb-8 shadow-sm hover:border-zinc-500 transition-colors">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>v1.0 · Proof of Work OS</span>
-          <ChevronRight className="w-3 h-3 text-zinc-500" />
-        </div>
+        {/* Centered Content Container */}
+        <div className="relative z-10 px-6 max-w-5xl mx-auto text-center flex flex-col items-center">
+          {/* Crisp Monochromatic Pill Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs font-medium tracking-wide mb-8 shadow-sm hover:border-zinc-500 transition-colors">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>v1.0 · Proof of Work OS</span>
+            <ChevronRight className="w-3 h-3 text-zinc-500" />
+          </div>
 
-        {/* Hero Title: Punchy 2 lines */}
-        <h1 className="relative z-10 text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] max-w-4xl mb-6 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
-          Fair contribution tracking.
-          <br />
-          <span className="text-zinc-400 font-medium">Ship with confidence.</span>
-        </h1>
+          {/* Hero Title: Punchy 2 lines */}
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] max-w-4xl mb-6 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+            Fair contribution tracking.
+            <br />
+            <span className="text-zinc-400 font-medium">Ship with confidence.</span>
+          </h1>
 
-        {/* 1-Line Clean Subtitle */}
-        <p className="relative z-10 text-base sm:text-lg text-zinc-300 max-w-xl mb-10 leading-relaxed font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-          Turn GitHub commits, Figma designs, and team deliverables into tamper-proof proof of work.
-        </p>
+          {/* 1-Line Clean Subtitle */}
+          <p className="text-base sm:text-lg text-zinc-300 max-w-xl mb-10 leading-relaxed font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+            Turn GitHub commits, Figma designs, and team deliverables into tamper-proof proof of work.
+          </p>
 
-        {/* Primary CTAs */}
-        <div className="relative z-10 flex flex-wrap items-center justify-center gap-4">
-          <SpecularButton
-            size="lg"
-            radius={14}
-            tint="#18181b"
-            tintOpacity={0.95}
-            textColor="#ffffff"
-            lineColor="#ffffff"
-            baseColor="#3f3f46"
-            intensity={1.4}
-            speed={0.35}
-            followMouse={true}
-            onClick={() => router.push("/login")}
-          >
-            <span>Launch Workspace</span>
-            <ArrowRight className="w-4 h-4 ml-1" />
-          </SpecularButton>
+          {/* Primary CTAs */}
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <SpecularButton
+              size="lg"
+              radius={14}
+              tint="#18181b"
+              tintOpacity={0.95}
+              textColor="#ffffff"
+              lineColor="#ffffff"
+              baseColor="#3f3f46"
+              intensity={1.4}
+              speed={0.35}
+              followMouse={true}
+              onClick={() => router.push("/login")}
+            >
+              <span>Launch Workspace</span>
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </SpecularButton>
 
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-medium text-sm transition-all shadow-md"
-          >
-            <Github className="w-4 h-4 text-zinc-300" />
-            <span>Continue with GitHub</span>
-          </Link>
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-medium text-sm transition-all shadow-md"
+            >
+              <Github className="w-4 h-4 text-zinc-300" />
+              <span>Continue with GitHub</span>
+            </Link>
+          </div>
         </div>
       </section>
 
