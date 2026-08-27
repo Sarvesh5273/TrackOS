@@ -126,9 +126,44 @@ export async function POST(
       emailToUserId.set(user.email.toLowerCase(), user.id);
     }
 
+    // Query existing evidence items in database to prevent duplicates
+    const { data: existingItems } = await supabase
+      .from("evidence_items")
+      .select("id, source, source_id, created_at")
+      .eq("workspace_id", workspaceId);
+
+    // Identify and prune any duplicate records already in DB
+    const existingKeyToId = new Map<string, string>();
+    const duplicateIdsToDelete: string[] = [];
+
+    for (const item of existingItems || []) {
+      if (!item.source_id) continue;
+      const key = `${item.source}:${item.source_id}`;
+      if (existingKeyToId.has(key)) {
+        duplicateIdsToDelete.push(item.id);
+      } else {
+        existingKeyToId.set(key, item.id);
+      }
+    }
+
+    if (duplicateIdsToDelete.length > 0) {
+      await supabase
+        .from("evidence_items")
+        .delete()
+        .in("id", duplicateIdsToDelete);
+    }
+
     // Populate evidence items with attribution
-    const syncVersion = `sync-${Date.now()}`;
-    const evidenceToInsert = evidence.map((e) => {
+    const syncVersion = "v1";
+    const newEvidenceToInsert: any[] = [];
+
+    for (const e of evidence) {
+      const key = `${e.source}:${e.sourceId}`;
+      // Skip if already in database
+      if (existingKeyToId.has(key)) {
+        continue;
+      }
+
       const lowerUsername = (e.actorUsername || "").toLowerCase();
       const lowerEmail = (e.actorEmail || "").toLowerCase();
 
@@ -145,7 +180,7 @@ export async function POST(
         lowerUsername.includes("renovate")
       );
 
-      return {
+      newEvidenceToInsert.push({
         workspace_id: workspaceId,
         source: e.source,
         source_id: e.sourceId,
@@ -173,17 +208,22 @@ export async function POST(
         is_bot_generated: isBot,
         is_excluded: isBot,
         exclusion_reason: isBot ? "Detected as automated bot activity" : null,
-      };
-    });
+      });
 
-    // Upsert evidence items into database
-    const { error: insertError } = await supabase
-      .from("evidence_items")
-      .upsert(evidenceToInsert, { onConflict: "workspace_id,source,source_id,sync_version" });
+      // Mark key as seen
+      existingKeyToId.set(key, "pending");
+    }
 
-    if (insertError) {
-      console.error("Failed to insert evidence items:", insertError);
-      throw insertError;
+    // Insert only new distinct evidence items
+    if (newEvidenceToInsert.length > 0) {
+      const { error: insertError } = await supabase
+        .from("evidence_items")
+        .insert(newEvidenceToInsert);
+
+      if (insertError) {
+        console.error("Failed to insert evidence items:", insertError);
+        throw insertError;
+      }
     }
 
     // Update integration status and timestamp
@@ -205,16 +245,18 @@ export async function POST(
       object_type: "integration",
       object_id: integration.id,
       new_value: {
-        itemCount: evidenceToInsert.length,
+        newItemsCount: newEvidenceToInsert.length,
+        totalItemsCount: evidence.length,
         syncVersion,
         repo: `${owner}/${repo}`,
       },
     });
 
     return NextResponse.json({
-      synced: evidenceToInsert.length,
+      synced: newEvidenceToInsert.length,
+      total: evidence.length,
       syncVersion,
-      message: `Successfully synced ${evidenceToInsert.length} items from ${owner}/${repo}`,
+      message: `Sync complete. ${newEvidenceToInsert.length} new items synced (${evidence.length} total in repo).`,
     });
 
   } catch (error: any) {

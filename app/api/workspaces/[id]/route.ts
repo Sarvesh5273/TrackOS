@@ -58,7 +58,31 @@ export async function GET(
       .eq("workspace_id", params.id)
       .order("timestamp", { ascending: false });
 
-    return NextResponse.json({ workspace, evidence: evidence || [] });
+    // Deduplicate in-memory and identify any duplicate rows to prune from database
+    const seenKeys = new Set<string>();
+    const uniqueEvidence: any[] = [];
+    const duplicateIdsToDelete: string[] = [];
+
+    for (const item of evidence || []) {
+      const key = item.source_id ? `${item.source}:${item.source_id}` : item.id;
+      if (seenKeys.has(key)) {
+        duplicateIdsToDelete.push(item.id);
+      } else {
+        seenKeys.add(key);
+        uniqueEvidence.push(item);
+      }
+    }
+
+    // Auto-clean duplicates in DB if any exist
+    if (duplicateIdsToDelete.length > 0) {
+      supabase
+        .from("evidence_items")
+        .delete()
+        .in("id", duplicateIdsToDelete)
+        .then(() => {});
+    }
+
+    return NextResponse.json({ workspace, evidence: uniqueEvidence });
   } catch (err) {
     console.error("API error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
