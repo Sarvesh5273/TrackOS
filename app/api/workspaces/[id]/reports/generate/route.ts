@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateContributionScores } from "@/lib/scoring/engine";
 
 export async function POST(
@@ -7,6 +8,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   const supabase = createClient();
+  const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -33,52 +35,56 @@ export async function POST(
 
   if (!workspace) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Must be frozen or active
-  if (workspace.status !== "frozen" && workspace.status !== "active") {
-    return NextResponse.json(
-      { error: "Workspace must be frozen before generating report" },
-      { status: 400 }
-    );
-  }
-
-  const { data: evidenceItems } = await supabase
+  // Fetch all evidence items for this workspace
+  const { data: rawEvidence } = await admin
     .from("evidence_items")
     .select("*")
     .eq("workspace_id", workspaceId);
 
-  const { data: memberships } = await (supabase
-    .from("memberships")
-    .select("*")
-    .eq("workspace_id", workspaceId) as any);
+  // Deduplicate evidence items
+  const seenKeys = new Set<string>();
+  const uniqueEvidence: any[] = [];
 
-  // Get manual evidence
-  const { data: manualEvidence } = await supabase
-    .from("manual_evidence")
+  for (const e of rawEvidence || []) {
+    const key = e.source_id ? `${e.source}:${e.source_id}` : e.id;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueEvidence.push(e);
+    }
+  }
+
+  // Fetch memberships
+  const { data: memberships } = await admin
+    .from("memberships")
     .select("*")
     .eq("workspace_id", workspaceId);
 
-  // Combine evidence
-  const allEvidence = [
-    ...(evidenceItems || []),
-    ...(manualEvidence || []).map((m: any) => ({
-      id: m.id,
-      source: "manual" as const,
-      category: m.category,
-      actor_id: m.submitted_by,
-      collaborator_ids: m.collaborator_ids || [],
-      timestamp: m.start_date,
-      base_weight: 1.5,
-      impact_factor: m.effort_band === "EXTENSIVE" ? 3.0 : m.effort_band === "LARGE" ? 2.0 : m.effort_band === "MEDIUM" ? 1.5 : 1.0,
-      quality_factor: m.review_status === "approved" ? 0.9 : 0.7,
-      duplication_factor: 1.0,
-      is_duplicate: false,
-      is_bot_generated: false,
-      is_excluded: false,
-      verification_state: m.review_status === "approved" ? "collaborator_confirmed" : "manual_submitted",
-      work_type: m.work_type,
-      metadata: { manual: true, title: m.title },
-    })),
-  ];
+  // Lookup user metadata for all members
+  const userDetailsMap = new Map<string, { displayName: string; email: string; avatarUrl: string }>();
+  for (const m of memberships || []) {
+    if (!m.user_id) continue;
+    try {
+      const { data: userData } = await admin.auth.admin.getUserById(m.user_id);
+      const meta = userData?.user?.user_metadata || {};
+      const name =
+        meta.name ||
+        meta.full_name ||
+        meta.user_name ||
+        userData?.user?.email?.split("@")[0] ||
+        "Contributor";
+      userDetailsMap.set(m.user_id, {
+        displayName: name,
+        email: userData?.user?.email || "",
+        avatarUrl: meta.avatar_url || "",
+      });
+    } catch {
+      userDetailsMap.set(m.user_id, {
+        displayName: "Contributor",
+        email: "",
+        avatarUrl: "",
+      });
+    }
+  }
 
   const categories = (workspace.categories || []) as Array<{ id: string; weight: number }>;
   const categoryWeights: Record<string, number> = {};
@@ -86,11 +92,12 @@ export async function POST(
 
   const scoringInput = {
     workspaceId: workspace.id,
-    evidenceItems: allEvidence.map((e) => ({
+    evidenceItems: uniqueEvidence.map((e) => ({
       id: e.id,
       source: e.source,
+      summary: e.summary,
       category: e.category,
-      actorId: e.actor_id,
+      actorId: e.actor_id || user.id,
       collaboratorIds: e.collaborator_ids || [],
       timestamp: new Date(e.timestamp),
       baseWeight: e.base_weight || 1.0,
@@ -116,11 +123,16 @@ export async function POST(
 
   // Enrich with user details
   const enrichedResults = scoringOutput.memberResults.map((result) => {
-    const member = (memberships || []).find((m: any) => m.user_id === result.userId);
+    const u = userDetailsMap.get(result.userId);
+    const fallbackName =
+      result.userId === user.id
+        ? user.user_metadata?.name || user.user_metadata?.user_name || user.email?.split("@")[0] || "Contributor"
+        : "Team Member";
     return {
       ...result,
-      displayName: member?.user?.raw_user_meta_data?.name || member?.user?.email || "Team Member",
-      email: member?.user?.email || "",
+      displayName: u?.displayName || fallbackName,
+      email: u?.email || (result.userId === user.id ? user.email : ""),
+      avatarUrl: u?.avatarUrl || "",
     };
   });
 

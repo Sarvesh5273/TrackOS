@@ -289,7 +289,7 @@ export function calculateContributionScores(input: ScoringInput): ScoringOutput 
         const ev = evidenceValues.get(key);
         return {
           evidenceId: e.id,
-          description: `${e.source} — ${e.workType || "contribution"}`,
+          description: e.summary || (e.metadata?.title as string) || `${e.source.replace("_", " ")} — ${e.workType || "contribution"}`,
           impact: ev?.calculatedValue || 0,
         };
       })

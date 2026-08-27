@@ -194,6 +194,7 @@ export interface ScoringEvidenceItem {
   isExcluded?: boolean;
   verificationState?: string;
   workType?: WorkType | string;
+  summary?: string;
   metadata?: Record<string, unknown>;
 }
 
