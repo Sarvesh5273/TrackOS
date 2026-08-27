@@ -79,6 +79,12 @@ export async function POST(
       user.email ||
       "Contributor";
 
+    const VALID_WORK_TYPES = ["original", "collaboration", "review", "coordination", "presentation"];
+    const safeWorkType = VALID_WORK_TYPES.includes(work_type?.toLowerCase()) ? work_type.toLowerCase() : "original";
+
+    const VALID_EFFORT_BANDS = ["SMALL", "MEDIUM", "LARGE", "EXTENSIVE"];
+    const safeEffortBand = VALID_EFFORT_BANDS.includes(effort_band?.toUpperCase()) ? effort_band.toUpperCase() : "MEDIUM";
+
     const { data: manualEvidence, error: meError } = await supabase
       .from("manual_evidence")
       .insert({
@@ -89,8 +95,8 @@ export async function POST(
         start_date: start_date || new Date().toISOString(),
         end_date: end_date || null,
         category,
-        effort_band,
-        work_type,
+        effort_band: safeEffortBand,
+        work_type: safeWorkType,
         artifact_url: artifact_url || null,
         review_status: "pending",
       })
@@ -116,15 +122,15 @@ export async function POST(
         summary: title,
         description: safeDescription,
         category,
-        work_type,
+        work_type: safeWorkType,
         verification_state: "manual_submitted",
         base_weight: 1.5,
         impact_factor:
-          effort_band === "EXTENSIVE"
+          safeEffortBand === "EXTENSIVE"
             ? 3.0
-            : effort_band === "LARGE"
+            : safeEffortBand === "LARGE"
             ? 2.0
-            : effort_band === "MEDIUM"
+            : safeEffortBand === "MEDIUM"
             ? 1.5
             : 1.0,
         quality_factor: 0.7,
