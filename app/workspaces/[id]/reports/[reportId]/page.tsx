@@ -6,9 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import {
   ArrowLeft, AlertTriangle, CheckCircle, Users, FileText,
-  TrendingUp, Minus, Info, Download, MessageSquare, ShieldCheck, Trash2, Loader2
+  TrendingUp, Minus, Info, Download, MessageSquare, ShieldCheck, Trash2, Loader2, Scale
 } from "lucide-react";
 import { formatDateTime, formatPercent } from "@/lib/utils";
+import DisputeRoomModal from "@/components/DisputeRoomModal";
 import type { Report, Workspace, EvidenceItem } from "@/types";
 
 export default function ReportPage() {
@@ -20,6 +21,8 @@ export default function ReportPage() {
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [isLeader, setIsLeader] = useState(false);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
 
   const workspaceId = params.id as string;
   const reportId = params.reportId as string;
@@ -31,6 +34,16 @@ export default function ReportPage() {
   const loadData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
+
+    // Check membership role
+    const { data: membership } = await supabase
+      .from("memberships")
+      .select("role")
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    setIsLeader(membership?.role === "leader");
 
     // Get workspace
     const wsRes = await fetch(`/api/workspaces/${workspaceId}`);
@@ -320,17 +333,31 @@ export default function ReportPage() {
         {/* Dispute Section */}
         <div className="bg-white rounded-xl border p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <MessageSquare className="w-5 h-5" />
-            Review & Disputes
+            <Scale className="w-5 h-5 text-purple-600" />
+            Review &amp; Split-Credit Disputes
           </h2>
           <p className="text-sm text-gray-600 mb-4">
-            If you believe evidence is missing or incorrectly attributed, you can raise a dispute during the review window.
+            If you believe evidence is missing, incorrectly attributed, or should be split with a teammate, you can propose a joint-credit split or raise a dispute.
           </p>
-          <button className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm">
-            Raise a Dispute
+          <button
+            onClick={() => setShowDisputeModal(true)}
+            className="px-4 py-2 border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl text-sm font-semibold transition-colors inline-flex items-center gap-2 shadow-sm"
+          >
+            <Scale className="w-4 h-4" />
+            Raise a Dispute / Propose Split
           </button>
         </div>
       </main>
+
+      {/* Dispute & Split-Credit Room Modal */}
+      {showDisputeModal && (
+        <DisputeRoomModal
+          workspaceId={workspaceId}
+          evidenceItems={evidence}
+          isLeader={isLeader}
+          onClose={() => setShowDisputeModal(false)}
+        />
+      )}
     </div>
   );
 }

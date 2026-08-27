@@ -41,16 +41,24 @@ export async function POST(
     .select("*")
     .eq("workspace_id", workspaceId);
 
-  // Deduplicate evidence items
+  // Deduplicate evidence items and prune duplicate records from DB
   const seenKeys = new Set<string>();
   const uniqueEvidence: any[] = [];
+  const duplicateIdsToDelete: string[] = [];
 
   for (const e of rawEvidence || []) {
-    const key = e.source_id ? `${e.source}:${e.source_id}` : e.id;
-    if (!seenKeys.has(key)) {
+    const key = e.source_id ? `${e.source}:${e.source_id}` : (e.summary ? `${e.source}:${e.summary}` : e.id);
+    if (seenKeys.has(key)) {
+      duplicateIdsToDelete.push(e.id);
+    } else {
       seenKeys.add(key);
       uniqueEvidence.push(e);
     }
+  }
+
+  // Prune stale duplicate rows from database immediately
+  if (duplicateIdsToDelete.length > 0) {
+    await admin.from("evidence_items").delete().in("id", duplicateIdsToDelete);
   }
 
   // Fetch memberships
