@@ -19,32 +19,32 @@ uniform float uTime;
 uniform vec2 uMouse;
 uniform float uSpeed;
 uniform float uFrequency;
-uniform float uAmplitude;
-uniform float uChroma;
-uniform vec3 uColor1;
-uniform vec3 uColor2;
-uniform vec3 uColor3;
+uniform float uDistortion;
+uniform float uGrain;
+uniform vec3 uColor1; // #ffffff White crest
+uniform vec3 uColor2; // #8B5CF6 Violet chroma
+uniform vec3 uColor3; // #06050a Dark velvet base
 uniform float uOpacity;
 
 out vec4 fragColor;
 
-// Simplex 2D noise
-vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+// 2D Simplex Noise
+vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
 
-float snoise(vec2 v){
+float snoise(vec2 v) {
   const vec4 C = vec4(0.211324865405187, 0.366025403784439,
-           -0.577350269189626, 0.024390243902439);
+                     -0.577350269189626, 0.024390243902439);
   vec2 i  = floor(v + dot(v, C.yy) );
   vec2 x0 = v -   i + dot(i, C.xx);
-  vec2 i1;
-  i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
   vec4 x12 = x0.xyxy + C.xxzz;
   x12.xy -= i1;
-  i = mod(i, 289.0);
+  i = mod289(i);
   vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
   + i.x + vec3(0.0, i1.x, 1.0 ));
-  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
-    dot(x12.zw,x12.zw)), 0.0);
+  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
   m = m*m ;
   m = m*m ;
   vec3 x = 2.0 * fract(p * C.www) - 1.0;
@@ -58,47 +58,63 @@ float snoise(vec2 v){
   return 130.0 * dot(m, g);
 }
 
-float wave(vec2 uv, float offset, float speed, float freq, float amp) {
-  float t = uTime * speed + offset;
-  float n1 = snoise(uv * freq + vec2(t * 0.15, t * 0.2));
-  float n2 = snoise(uv * (freq * 1.5) - vec2(t * 0.1, -t * 0.18));
-  float w = sin(uv.y * 4.0 + n1 * amp * 3.0 + t) * 0.5 + 0.5;
-  w += sin(uv.x * 3.0 + n2 * amp * 2.5 - t * 0.6) * 0.25;
-  return clamp(w, 0.0, 1.0);
+// Pseudo-random noise for subtle film grain dithering
+float random(vec2 st) {
+  return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution.xy;
+  vec2 p = (gl_FragCoord.xy * 2.0 - uResolution.xy) / min(uResolution.x, uResolution.y);
   
   // Smooth mouse ripple
   vec2 mouseDist = uv - uMouse;
   float d = length(mouseDist);
-  float mouseWave = sin(d * 18.0 - uTime * 2.5) * exp(-d * 5.0) * 0.08;
-  uv += (mouseDist / (d + 0.001)) * mouseWave;
+  p += (mouseDist / (d + 0.08)) * sin(d * 10.0 - uTime * 2.0) * exp(-d * 3.5) * 0.08;
 
-  // Chromatic dispersion (RGB offset sampling)
-  float r = wave(uv + vec2(uChroma, 0.0), 0.0, uSpeed, uFrequency, uAmplitude);
-  float g = wave(uv, 0.04, uSpeed, uFrequency, uAmplitude);
-  float b = wave(uv - vec2(uChroma, 0.0), 0.08, uSpeed, uFrequency, uAmplitude);
+  float t = uTime * uSpeed;
 
-  // Gradient mixing
-  vec3 col = mix(uColor1, uColor3, g);
-  col = mix(col, uColor2, r * b * 0.85);
+  // Domain warping for smooth liquid silk waves
+  vec2 q = vec2(0.0);
+  q.x = snoise(p * uFrequency + vec2(t * 0.18, t * 0.22));
+  q.y = snoise(p * uFrequency + vec2(-t * 0.15, t * 0.2));
 
-  // Mask top and bottom for smooth blending into background
-  float verticalFade = smoothstep(0.0, 0.2, uv.y) * smoothstep(1.0, 0.7, uv.y);
+  vec2 r = vec2(0.0);
+  r.x = snoise(p * uFrequency + uDistortion * q + vec2(1.7, 9.2) + 0.12 * t);
+  r.y = snoise(p * uFrequency + uDistortion * q + vec2(8.3, 2.8) + 0.1 * t);
+
+  float f = snoise(p * uFrequency + uDistortion * r);
+
+  // Soft wave bands and crests
+  float wave = smoothstep(-0.6, 0.85, f);
+  float highlight = smoothstep(0.2, 0.95, f);
+  float chromaEdge = smoothstep(-0.2, 0.6, f) * (1.0 - smoothstep(0.4, 0.9, f));
+
+  // Color blending: Dark base -> #8B5CF6 Violet Chroma -> #FFFFFF White Silk
+  vec3 col = uColor3;
+  col = mix(col, uColor2, chromaEdge * 0.92);
+  col = mix(col, uColor1, highlight * 0.95);
+
+  // Film grain dithering as in React Bits Pro
+  if (uGrain > 0.0) {
+    float grain = (random(uv * uResolution.xy + fract(uTime * 4.0)) - 0.5) * uGrain;
+    col += grain;
+  }
+
+  // Smooth vertical mask for seamless blending
+  float verticalFade = smoothstep(0.0, 0.25, uv.y) * smoothstep(1.0, 0.75, uv.y);
   float horizontalFade = smoothstep(0.0, 0.15, uv.x) * smoothstep(1.0, 0.85, uv.x);
   float mask = verticalFade * horizontalFade;
 
-  fragColor = vec4(col, uOpacity * mask);
+  fragColor = vec4(clamp(col, 0.0, 1.0), uOpacity * mask);
 }
 `;
 
 export interface ChromaWavesProps {
   speed?: number;
   frequency?: number;
-  amplitude?: number;
-  chroma?: number;
+  distortion?: number;
+  grain?: number;
   color1?: string;
   color2?: string;
   color3?: string;
@@ -109,14 +125,14 @@ export interface ChromaWavesProps {
 }
 
 export default function ChromaWaves({
-  speed = 0.25,
-  frequency = 1.8,
-  amplitude = 0.45,
-  chroma = 0.02,
-  color1 = "#000000",
-  color2 = "#3f3f46",
-  color3 = "#18181b",
-  opacity = 0.85,
+  speed = 0.45,
+  frequency = 0.35,
+  distortion = 1.5,
+  grain = 0.06,
+  color1 = "#ffffff",
+  color2 = "#8B5CF6",
+  color3 = "#06050b",
+  opacity = 0.9,
   interactive = true,
   className = "",
   style,
@@ -127,8 +143,8 @@ export default function ChromaWaves({
   propsRef.current = {
     speed,
     frequency,
-    amplitude,
-    chroma,
+    distortion,
+    grain,
     color1,
     color2,
     color3,
@@ -170,8 +186,8 @@ export default function ChromaWaves({
         uMouse: { value: [0.5, 0.5] },
         uSpeed: { value: speed },
         uFrequency: { value: frequency },
-        uAmplitude: { value: amplitude },
-        uChroma: { value: chroma },
+        uDistortion: { value: distortion },
+        uGrain: { value: grain },
         uColor1: { value: [c1.r, c1.g, c1.b] },
         uColor2: { value: [c2.r, c2.g, c2.b] },
         uColor3: { value: [c3.r, c3.g, c3.b] },
@@ -233,8 +249,8 @@ export default function ChromaWaves({
       program.uniforms.uMouse.value = currentMouse;
       program.uniforms.uSpeed.value = p.speed;
       program.uniforms.uFrequency.value = p.frequency;
-      program.uniforms.uAmplitude.value = p.amplitude;
-      program.uniforms.uChroma.value = p.chroma;
+      program.uniforms.uDistortion.value = p.distortion;
+      program.uniforms.uGrain.value = p.grain;
       program.uniforms.uColor1.value = [c1.r, c1.g, c1.b];
       program.uniforms.uColor2.value = [c2.r, c2.g, c2.b];
       program.uniforms.uColor3.value = [c3.r, c3.g, c3.b];

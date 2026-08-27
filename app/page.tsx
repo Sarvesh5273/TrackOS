@@ -140,17 +140,17 @@ export default function HomePage() {
 
       {/* Hero Section with Chroma Waves Background */}
       <section className="relative z-10 px-6 pt-24 pb-20 max-w-7xl mx-auto text-center flex flex-col items-center">
-        {/* Chroma Waves WebGL Shader Canvas */}
-        <div className="absolute inset-0 -top-20 -bottom-10 pointer-events-none overflow-hidden opacity-50 z-0">
+        {/* Chroma Waves WebGL Shader Canvas matching React Bits Pro */}
+        <div className="absolute inset-0 -top-28 -bottom-16 pointer-events-none overflow-hidden opacity-85 z-0">
           <ChromaWaves
-            speed={0.2}
-            frequency={1.5}
-            amplitude={0.4}
-            chroma={0.015}
-            color1="#000000"
-            color2="#71717a"
-            color3="#18181b"
-            opacity={0.75}
+            speed={0.45}
+            frequency={0.35}
+            distortion={1.5}
+            grain={0.065}
+            color1="#ffffff"
+            color2="#8B5CF6"
+            color3="#050408"
+            opacity={0.9}
             interactive={true}
           />
         </div>
