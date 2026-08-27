@@ -60,6 +60,8 @@ export async function GET(
   }
 }
 
+import { createAdminClient } from "@/lib/supabase/admin";
+
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -100,7 +102,9 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { data: workspace } = await supabase
+    const admin = createAdminClient();
+
+    const { data: workspace } = await admin
       .from("workspaces")
       .select("*")
       .eq("id", params.id)
@@ -110,49 +114,55 @@ export async function POST(
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
-    const { data: evidenceItems } = await supabase
+    // Fetch all evidence items
+    const { data: rawEvidence } = await admin
       .from("evidence_items")
       .select("*")
       .eq("workspace_id", params.id);
 
-    const { data: memberships } = await (supabase
-      .from("memberships")
-      .select("*")
-      .eq("workspace_id", params.id) as any);
+    // Deduplicate evidence items
+    const seenKeys = new Set<string>();
+    const uniqueEvidence: any[] = [];
 
-    const { data: manualEvidence } = await supabase
-      .from("manual_evidence")
+    for (const e of rawEvidence || []) {
+      const key = e.source_id ? `${e.source}:${e.source_id}` : e.id;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        uniqueEvidence.push(e);
+      }
+    }
+
+    // Fetch memberships and enrich user metadata
+    const { data: memberships } = await admin
+      .from("memberships")
       .select("*")
       .eq("workspace_id", params.id);
 
-    const allEvidence = [
-      ...(evidenceItems || []),
-      ...(manualEvidence || []).map((m: any) => ({
-        id: m.id,
-        source: "manual",
-        category: m.category,
-        actor_id: m.submitted_by,
-        collaborator_ids: m.collaborator_ids || [],
-        timestamp: m.start_date,
-        base_weight: 1.5,
-        impact_factor:
-          m.effort_band === "EXTENSIVE"
-            ? 3.0
-            : m.effort_band === "LARGE"
-            ? 2.0
-            : m.effort_band === "MEDIUM"
-            ? 1.5
-            : 1.0,
-        quality_factor: m.review_status === "approved" ? 0.9 : 0.7,
-        duplication_factor: 1.0,
-        is_duplicate: false,
-        is_bot_generated: false,
-        is_excluded: false,
-        verification_state: m.review_status === "approved" ? "collaborator_confirmed" : "manual_submitted",
-        work_type: m.work_type,
-        metadata: { manual: true, title: m.title },
-      })),
-    ];
+    const userDetailsMap = new Map<string, { displayName: string; email: string; avatarUrl: string }>();
+    for (const m of memberships || []) {
+      if (!m.user_id) continue;
+      try {
+        const { data: userData } = await admin.auth.admin.getUserById(m.user_id);
+        const meta = userData?.user?.user_metadata || {};
+        const name =
+          meta.name ||
+          meta.full_name ||
+          meta.user_name ||
+          userData?.user?.email?.split("@")[0] ||
+          "Contributor";
+        userDetailsMap.set(m.user_id, {
+          displayName: name,
+          email: userData?.user?.email || "",
+          avatarUrl: meta.avatar_url || "",
+        });
+      } catch {
+        userDetailsMap.set(m.user_id, {
+          displayName: "Contributor",
+          email: "",
+          avatarUrl: "",
+        });
+      }
+    }
 
     const categories = (workspace.categories || []) as Array<{ id: string; weight: number }>;
     const categoryWeights: Record<string, number> = {};
@@ -162,11 +172,12 @@ export async function POST(
 
     const scoringInput = {
       workspaceId: workspace.id,
-      evidenceItems: allEvidence.map((e) => ({
+      evidenceItems: uniqueEvidence.map((e) => ({
         id: e.id,
         source: e.source,
+        summary: e.summary,
         category: e.category,
-        actorId: e.actor_id,
+        actorId: e.actor_id || user.id,
         collaboratorIds: e.collaborator_ids || [],
         timestamp: new Date(e.timestamp),
         baseWeight: e.base_weight || 1.0,
@@ -191,15 +202,20 @@ export async function POST(
     const scoringOutput = calculateContributionScores(scoringInput);
 
     const enrichedResults = scoringOutput.memberResults.map((result) => {
-      const member = (memberships || []).find((m: any) => m.user_id === result.userId);
+      const u = userDetailsMap.get(result.userId);
+      const fallbackName =
+        result.userId === user.id
+          ? user.user_metadata?.name || user.user_metadata?.user_name || user.email?.split("@")[0] || "Contributor"
+          : "Team Member";
       return {
         ...result,
-        displayName: member?.user?.raw_user_meta_data?.name || member?.user?.email || "Team Member",
-        email: member?.user?.email || "",
+        displayName: u?.displayName || fallbackName,
+        email: u?.email || (result.userId === user.id ? user.email : ""),
+        avatarUrl: u?.avatarUrl || "",
       };
     });
 
-    const { data: lastReport } = await supabase
+    const { data: lastReport } = await admin
       .from("reports")
       .select("version")
       .eq("workspace_id", params.id)
@@ -209,7 +225,7 @@ export async function POST(
 
     const nextVersion = (lastReport?.version || 0) + 1;
 
-    const { data: report, error } = await supabase
+    const { data: report, error } = await admin
       .from("reports")
       .insert({
         workspace_id: params.id,
@@ -233,12 +249,12 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    await supabase
+    await admin
       .from("workspaces")
       .update({ status: "under_review" })
       .eq("id", params.id);
 
-    await supabase.from("audit_events").insert({
+    await admin.from("audit_events").insert({
       actor_id: user.id,
       workspace_id: params.id,
       action: "report.generated",
@@ -248,8 +264,8 @@ export async function POST(
     });
 
     return NextResponse.json(report, { status: 201 });
-  } catch (err) {
+  } catch (err: any) {
     console.error("API error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
 }
