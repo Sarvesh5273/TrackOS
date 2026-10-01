@@ -6,11 +6,66 @@ export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
 export type DisputeState = "open" | "under_discussion" | "resolved" | "rejected" | "unresolved_at_publication";
 export type WorkType = "created" | "review" | "coordination" | "presentation" | "original" | "collaboration";
 
+export type TaskStatus = "todo" | "in_progress" | "done";
+export type TaskSize = "S" | "M" | "L";
+
+export interface SplitProposal {
+  proposedBy: string;
+  split: Record<string, number>;
+  approvals: string[];
+  createdAt: string;
+}
+
+export interface Task {
+  id: string;
+  workspace_id: string;
+  number: number;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  category: ContributionCategory;
+  size: TaskSize;
+  assignee_ids: string[];
+  /** null = equal split; otherwise userId -> percent (sums to 100) */
+  split: Record<string, number> | null;
+  split_proposal: SplitProposal | null;
+  confirmed_by: string[];
+  due_date: string | null;
+  link: string | null;
+  position: number;
+  created_by: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A project member as the UI sees it (never includes invite tokens). */
+export interface TeamMember {
+  membershipId: string;
+  userId: string;
+  role: MembershipRole;
+  name: string;
+  avatarUrl: string;
+  githubLogin: string | null;
+  email: string | null;
+  joinedAt: string | null;
+}
+
+export interface PendingInvite {
+  membershipId: string;
+  role: MembershipRole;
+  expiresAt: string | null;
+  inviteUrl: string | null;
+}
+
 export interface Workspace {
   id: string;
   name: string;
   description: string | null;
+  task_key: string;
   project_type: string | null;
+  project_brief: string | null;
   start_date: string;
   end_date: string;
   timezone: string;
@@ -140,7 +195,13 @@ export interface Report {
 export interface MemberResult {
   userId: string;
   displayName: string;
-  email: string;
+  /** Not stored in new reports (kept optional for old ones). */
+  email?: string;
+  avatarUrl?: string;
+  githubLogin?: string | null;
+  tasksDone?: number;
+  taskPoints?: number;
+  /** Percent of the team total, 0-100. */
   contributionShare: number;
   confidenceLevel: ConfidenceLevel;
   confidenceReasons: string[];
@@ -171,7 +232,12 @@ export interface Dispute {
   resolution: string | null;
   resolution_rationale: string | null;
   resolved_by: string | null;
+  resolved_at?: string | null;
+  visible_in_published_report?: boolean;
   created_at: string;
+  /** Added by the API */
+  created_by_name?: string;
+  resolved_by_name?: string | null;
 }
 
 // ============================================
@@ -179,10 +245,12 @@ export interface Dispute {
 // ============================================
 export interface ScoringEvidenceItem {
   id: string;
-  source: EvidenceSource | string;
+  source: EvidenceSource | "task" | string;
   category: ContributionCategory;
   actorId: string | null;
   collaboratorIds: string[];
+  /** Explicit credit shares (fractions summing to 1). Overrides actor/collaborators. */
+  shares?: { userId: string; share: number }[];
   timestamp: Date;
   baseWeight?: number;
   impactFactor?: number;

@@ -1,15 +1,19 @@
 // lib/integrations/github.ts
-// SRS SF-03, SF-04: GitHub OAuth + Evidence Ingestion + Normalization
+// GitHub ingestion + normalization (commits, PRs, issues, reviews). Server only.
 
 import { Octokit } from "@octokit/rest";
 import { EvidenceSource, ContributionCategory, WorkType } from "@/types";
 
 export interface GitHubSyncConfig {
-  accessToken?: string;
   owner: string;
   repo: string;
   since?: Date;
   until?: Date;
+}
+
+export interface CoAuthor {
+  name: string;
+  email: string;
 }
 
 export interface NormalizedEvidence {
@@ -19,7 +23,6 @@ export interface NormalizedEvidence {
   eventType: string;
   actorUsername: string;
   actorEmail?: string;
-  collaboratorUsernames?: string[];
   timestamp: Date;
   summary: string;
   description?: string;
@@ -27,32 +30,43 @@ export interface NormalizedEvidence {
   workType: WorkType;
   metadata: Record<string, unknown>;
   baseWeight: number;
+  impactFactor?: number;
 }
 
-// ============================================
-// GitHub Sync Orchestrator
-// ============================================
+// Caps keep a sync inside serverless time limits and GitHub rate limits
+const MAX_COMMITS = 1000;
+const MAX_PULLS = 300;
+const MAX_ISSUES = 300;
+const MAX_REVIEWED_PULLS = 100;
+
+/** "owner/repo", "https://github.com/owner/repo(.git)" -> { owner, repo } */
+export function parseRepo(input: string): { owner: string; repo: string } | null {
+  const cleaned = input
+    .trim()
+    .replace(/^https?:\/\/(www\.)?github\.com\//i, "")
+    .replace(/^git@github\.com:/i, "")
+    .replace(/\.git$/i, "")
+    .replace(/\/+$/, "");
+  const [owner, repo, ...rest] = cleaned.split("/");
+  const valid = /^[A-Za-z0-9_.-]{1,100}$/;
+  if (!owner || !repo || rest.length > 0 || !valid.test(owner) || !valid.test(repo)) return null;
+  return { owner, repo };
+}
+
 export class GitHubSyncService {
   private octokit: Octokit;
 
-  constructor(accessToken?: string) {
+  constructor(accessToken?: string | null) {
     this.octokit = new Octokit(accessToken ? { auth: accessToken } : {});
   }
 
-  /**
-   * Validates repository access and returns repository details
-   */
   async validateRepository(owner: string, repo: string): Promise<{
     fullName: string;
     description: string | null;
     defaultBranch: string;
     isPrivate: boolean;
   }> {
-    const { data } = await this.octokit.rest.repos.get({
-      owner,
-      repo,
-    });
-
+    const { data } = await this.octokit.rest.repos.get({ owner, repo });
     return {
       fullName: data.full_name,
       description: data.description,
@@ -63,44 +77,28 @@ export class GitHubSyncService {
 
   async syncRepository(config: GitHubSyncConfig): Promise<NormalizedEvidence[]> {
     const { owner, repo, since, until } = config;
-    const allEvidence: NormalizedEvidence[] = [];
 
-    // Sync commits, PRs, issues in parallel
     const [commits, pullRequests, issues] = await Promise.all([
       this.syncCommits(owner, repo, since, until),
       this.syncPullRequests(owner, repo, since, until),
       this.syncIssues(owner, repo, since, until),
     ]);
 
-    allEvidence.push(...commits, ...pullRequests, ...issues);
-
-    // Sync PR reviews for each PR (limit concurrency/failures gracefully)
-    for (const pr of pullRequests) {
+    const reviews: NormalizedEvidence[] = [];
+    for (const pr of pullRequests.slice(0, MAX_REVIEWED_PULLS)) {
       const prNumber = pr.metadata.prNumber as number;
-      if (prNumber) {
-        try {
-          const reviews = await this.syncPRReviews(owner, repo, prNumber, since, until);
-          allEvidence.push(...reviews);
-        } catch (e) {
-          console.warn(`Failed to sync reviews for PR #${prNumber}:`, e);
-        }
-      }
+      if (!prNumber) continue;
+      reviews.push(...(await this.syncPRReviews(owner, repo, prNumber, since, until)));
     }
 
-    return allEvidence;
+    return [...commits, ...pullRequests, ...issues, ...reviews];
   }
 
-  // ============================================
-  // Commits
-  // ============================================
-  private async syncCommits(
-    owner: string, 
-    repo: string, 
-    since?: Date, 
-    until?: Date
-  ): Promise<NormalizedEvidence[]> {
+  // ---------- Commits ----------
+  private async syncCommits(owner: string, repo: string, since?: Date, until?: Date): Promise<NormalizedEvidence[]> {
+    const out: NormalizedEvidence[] = [];
     try {
-      const { data: commits } = await this.octokit.rest.repos.listCommits({
+      const iterator = this.octokit.paginate.iterator(this.octokit.rest.repos.listCommits, {
         owner,
         repo,
         since: since?.toISOString(),
@@ -108,106 +106,97 @@ export class GitHubSyncService {
         per_page: 100,
       });
 
-      return commits.map((commit) => {
-        const message = commit.commit.message || "";
-        const summary = message.split("\n")[0].substring(0, 200);
-        const { category, workType, conventionalType } = this.classifyCommitMessage(message);
-        const coAuthors = this.extractCoAuthors(message);
+      for await (const page of iterator) {
+        for (const commit of page.data) {
+          const message = commit.commit.message || "";
+          const summary = message.split("\n")[0].substring(0, 200);
+          const { category, workType, conventionalType } = this.classifyCommitMessage(message);
+          const coAuthors = this.extractCoAuthors(message);
+          const isMerge = (commit.parents?.length || 0) > 1;
 
-        return {
-          source: "github_commit" as EvidenceSource,
-          sourceId: commit.sha,
-          sourceUrl: commit.html_url || `https://github.com/${owner}/${repo}/commit/${commit.sha}`,
-          eventType: "commit",
-          actorUsername: commit.author?.login || commit.commit.author?.name || "unknown",
-          actorEmail: commit.commit.author?.email,
-          collaboratorUsernames: coAuthors,
-          timestamp: new Date(commit.commit.author?.date || Date.now()),
-          summary: summary || "Git commit",
-          description: message,
-          category,
-          workType,
-          metadata: {
-            sha: commit.sha,
-            conventionalType,
-            messageLength: message.length,
-            coAuthors,
-          },
-          baseWeight: 1.0,
-        };
-      });
+          out.push({
+            source: "github_commit",
+            sourceId: commit.sha,
+            sourceUrl: commit.html_url || `https://github.com/${owner}/${repo}/commit/${commit.sha}`,
+            eventType: "commit",
+            actorUsername: commit.author?.login || commit.commit.author?.name || "unknown",
+            actorEmail: commit.commit.author?.email || undefined,
+            timestamp: new Date(commit.commit.author?.date || Date.now()),
+            summary: summary || "Git commit",
+            description: message.substring(0, 5000),
+            category,
+            workType,
+            metadata: { sha: commit.sha, conventionalType, messageLength: message.length, coAuthors, isMerge },
+            // Merge commits repeat work already credited through the PR
+            baseWeight: isMerge ? 0.2 : 1.0,
+          });
+          if (out.length >= MAX_COMMITS) return out;
+        }
+      }
     } catch (err) {
       console.error("Error syncing commits:", err);
-      return [];
     }
+    return out;
   }
 
-  // ============================================
-  // Pull Requests
-  // ============================================
-  private async syncPullRequests(
-    owner: string, 
-    repo: string, 
-    since?: Date, 
-    until?: Date
-  ): Promise<NormalizedEvidence[]> {
+  // ---------- Pull requests ----------
+  private async syncPullRequests(owner: string, repo: string, since?: Date, until?: Date): Promise<NormalizedEvidence[]> {
+    const out: NormalizedEvidence[] = [];
     try {
-      const { data: prs } = await this.octokit.rest.pulls.list({
+      const iterator = this.octokit.paginate.iterator(this.octokit.rest.pulls.list, {
         owner,
         repo,
         state: "all",
+        sort: "created",
+        direction: "desc",
         per_page: 100,
       });
 
-      return prs
-        .filter((pr) => {
-          const prDate = new Date(pr.created_at);
-          if (since && prDate < since) return false;
-          if (until && prDate > until) return false;
-          return true;
-        })
-        .map((pr) => {
-          const { category } = this.classifyCommitMessage(pr.title);
-          const isMerged = Boolean(pr.merged_at || pr.state === "closed" && (pr as any).merged);
-
-          return {
-            source: "github_pr" as EvidenceSource,
-            sourceId: pr.node_id || String(pr.number),
-            sourceUrl: pr.html_url,
-            eventType: "pull_request",
-            actorUsername: pr.user?.login || "unknown",
-            timestamp: new Date(pr.created_at),
-            summary: pr.title.substring(0, 200),
-            description: pr.body || undefined,
-            category,
-            workType: isMerged ? "created" : "review",
-            metadata: {
-              prNumber: pr.number,
-              state: pr.state,
-              merged: isMerged,
-              mergedAt: pr.merged_at,
-              mergeCommitSha: pr.merge_commit_sha,
-            },
-            baseWeight: 2.5,
-          };
-        });
+      for await (const page of iterator) {
+        for (const pr of page.data) {
+          const created = new Date(pr.created_at);
+          if (since && created < since) return out; // sorted newest first
+          if (until && created > until) continue;
+          out.push(this.normalizePullRequest(pr, owner, repo));
+          if (out.length >= MAX_PULLS) return out;
+        }
+      }
     } catch (err) {
       console.error("Error syncing pull requests:", err);
-      return [];
     }
+    return out;
   }
 
-  // ============================================
-  // Issues
-  // ============================================
-  private async syncIssues(
-    owner: string, 
-    repo: string, 
-    since?: Date, 
-    until?: Date
-  ): Promise<NormalizedEvidence[]> {
+  normalizePullRequest(pr: any, owner: string, repo: string): NormalizedEvidence {
+    const { category } = this.classifyCommitMessage(pr.title || "");
+    const isMerged = Boolean(pr.merged_at || pr.merged);
+    return {
+      source: "github_pr",
+      sourceId: pr.node_id || String(pr.id || pr.number),
+      sourceUrl: pr.html_url || `https://github.com/${owner}/${repo}/pull/${pr.number}`,
+      eventType: "pull_request",
+      actorUsername: pr.user?.login || "unknown",
+      timestamp: new Date(pr.created_at || Date.now()),
+      summary: String(pr.title || "Pull request").substring(0, 200),
+      description: pr.body ? String(pr.body).substring(0, 5000) : undefined,
+      category,
+      workType: isMerged ? "created" : "review",
+      metadata: {
+        prNumber: pr.number,
+        state: pr.state,
+        merged: isMerged,
+        mergedAt: pr.merged_at || null,
+        mergeCommitSha: pr.merge_commit_sha || null,
+      },
+      baseWeight: 2.5,
+    };
+  }
+
+  // ---------- Issues ----------
+  private async syncIssues(owner: string, repo: string, since?: Date, until?: Date): Promise<NormalizedEvidence[]> {
+    const out: NormalizedEvidence[] = [];
     try {
-      const { data: issues } = await this.octokit.rest.issues.listForRepo({
+      const iterator = this.octokit.paginate.iterator(this.octokit.rest.issues.listForRepo, {
         owner,
         repo,
         state: "all",
@@ -215,47 +204,45 @@ export class GitHubSyncService {
         per_page: 100,
       });
 
-      return issues
-        .filter((issue) => !issue.pull_request) // Exclude PRs returned by issues endpoint
-        .filter((issue) => {
-          const issueDate = new Date(issue.created_at);
-          if (since && issueDate < since) return false;
-          if (until && issueDate > until) return false;
-          return true;
-        })
-        .map((issue) => ({
-          source: "github_issue" as EvidenceSource,
-          sourceId: String(issue.id),
-          sourceUrl: issue.html_url,
-          eventType: "issue",
-          actorUsername: issue.user?.login || "unknown",
-          timestamp: new Date(issue.created_at),
-          summary: issue.title.substring(0, 200),
-          description: issue.body || undefined,
-          category: this.categorizeIssue(issue.labels, issue.title),
-          workType: issue.state === "closed" ? "created" : "coordination",
-          metadata: {
-            issueNumber: issue.number,
-            state: issue.state,
-            labels: issue.labels.map((l) => (typeof l === "string" ? l : l.name)),
-            comments: issue.comments,
-          },
-          baseWeight: 1.5,
-        }));
+      for await (const page of iterator) {
+        for (const issue of page.data) {
+          if (issue.pull_request) continue;
+          const created = new Date(issue.created_at);
+          if ((since && created < since) || (until && created > until)) continue;
+          out.push({
+            source: "github_issue",
+            sourceId: String(issue.id),
+            sourceUrl: issue.html_url,
+            eventType: "issue",
+            actorUsername: issue.user?.login || "unknown",
+            timestamp: created,
+            summary: issue.title.substring(0, 200),
+            description: issue.body ? issue.body.substring(0, 5000) : undefined,
+            category: this.categorizeIssue(issue.labels, issue.title),
+            workType: issue.state === "closed" ? "created" : "coordination",
+            metadata: {
+              issueNumber: issue.number,
+              state: issue.state,
+              labels: issue.labels.map((l) => (typeof l === "string" ? l : l.name)),
+              comments: issue.comments,
+            },
+            baseWeight: 1.5,
+          });
+          if (out.length >= MAX_ISSUES) return out;
+        }
+      }
     } catch (err) {
       console.error("Error syncing issues:", err);
-      return [];
     }
+    return out;
   }
 
-  // ============================================
-  // PR Reviews
-  // ============================================
+  // ---------- Reviews ----------
   private async syncPRReviews(
-    owner: string, 
-    repo: string, 
+    owner: string,
+    repo: string,
     pullNumber: number,
-    since?: Date, 
+    since?: Date,
     until?: Date
   ): Promise<NormalizedEvidence[]> {
     try {
@@ -263,6 +250,7 @@ export class GitHubSyncService {
         owner,
         repo,
         pull_number: pullNumber,
+        per_page: 100,
       });
 
       return reviews
@@ -273,60 +261,54 @@ export class GitHubSyncService {
           if (until && reviewDate > until) return false;
           return true;
         })
-        .map((review) => {
-          const body = (review.body || "").trim();
-          const isSubstantive = body.length > 80 || body.includes("```") || body.includes("`");
-          const isChangesRequested = review.state === "CHANGES_REQUESTED";
-
-          // Calculate weight based on intellectual depth of review
-          let baseWeight = 1.5;
-          let impactFactor = 1.0;
-
-          if (isChangesRequested) {
-            baseWeight = 2.5;
-            impactFactor = 2.0; // Caught potential bug/architecture issue
-          } else if (isSubstantive) {
-            baseWeight = 2.0;
-            impactFactor = 1.4; // Thorough code inspection
-          } else if (body.toLowerCase() === "lgtm" || body.length < 10) {
-            baseWeight = 0.8;
-            impactFactor = 0.6; // Superficial pass
-          }
-
-          return {
-            source: "github_review" as EvidenceSource,
-            sourceId: String(review.id),
-            sourceUrl: review.html_url || `https://github.com/${owner}/${repo}/pull/${pullNumber}`,
-            eventType: "pr_review",
-            actorUsername: review.user?.login || "unknown",
-            timestamp: new Date(review.submitted_at!),
-            summary: isChangesRequested
-              ? `Requested changes on PR #${pullNumber}`
-              : isSubstantive
-              ? `In-depth code review on PR #${pullNumber}`
-              : `Reviewed PR #${pullNumber} (${review.state.toLowerCase()})`,
-            description: body || undefined,
-            category: "coordination_review" as ContributionCategory,
-            workType: "review" as WorkType,
-            metadata: {
-              prNumber: pullNumber,
-              reviewState: review.state,
-              isSubstantive,
-              feedbackLength: body.length,
-            },
-            baseWeight,
-            impactFactor,
-          };
-        });
+        .map((review) => this.normalizeReview(review, pullNumber, `https://github.com/${owner}/${repo}/pull/${pullNumber}`));
     } catch (err) {
       console.error(`Error syncing reviews for PR #${pullNumber}:`, err);
       return [];
     }
   }
 
-  // ============================================
-  // Classification Helpers
-  // ============================================
+  normalizeReview(review: any, pullNumber: number, fallbackUrl: string): NormalizedEvidence {
+    const body = String(review.body || "").trim();
+    const state = String(review.state || "").toUpperCase();
+    const isSubstantive = body.length > 80 || body.includes("`");
+    const isChangesRequested = state === "CHANGES_REQUESTED";
+
+    let baseWeight = 1.5;
+    let impactFactor = 1.0;
+    if (isChangesRequested) {
+      baseWeight = 2.5;
+      impactFactor = 2.0;
+    } else if (isSubstantive) {
+      baseWeight = 2.0;
+      impactFactor = 1.4;
+    } else if (body.toLowerCase() === "lgtm" || body.length < 10) {
+      baseWeight = 0.8;
+      impactFactor = 0.6;
+    }
+
+    return {
+      source: "github_review",
+      sourceId: String(review.id),
+      sourceUrl: review.html_url || fallbackUrl,
+      eventType: "pr_review",
+      actorUsername: review.user?.login || "unknown",
+      timestamp: new Date(review.submitted_at || Date.now()),
+      summary: isChangesRequested
+        ? `Requested changes on PR #${pullNumber}`
+        : isSubstantive
+        ? `In-depth code review on PR #${pullNumber}`
+        : `Reviewed PR #${pullNumber} (${state.toLowerCase().replace("_", " ")})`,
+      description: body ? body.substring(0, 5000) : undefined,
+      category: "coordination_review",
+      workType: "review",
+      metadata: { prNumber: pullNumber, reviewState: state, isSubstantive, feedbackLength: body.length },
+      baseWeight,
+      impactFactor,
+    };
+  }
+
+  // ---------- Classification ----------
   public classifyCommitMessage(message: string): {
     category: ContributionCategory;
     workType: WorkType;
@@ -334,8 +316,7 @@ export class GitHubSyncService {
   } {
     const lower = message.toLowerCase().trim();
 
-    // 1. Conventional Commits prefix matching
-    const match = lower.match(/^([a-z]+)(\([^\)]+\))?:\s*(.+)$/);
+    const match = lower.match(/^([a-z]+)(\([^)]+\))?!?:\s*(.+)/);
     if (match) {
       const type = match[1];
       switch (type) {
@@ -358,24 +339,16 @@ export class GitHubSyncService {
       }
     }
 
-    // 2. Keyword-based heuristic classification
-    if (/\b(design|ui|ux|css|theme|layout|component|view|screen|figma)\b/.test(lower)) {
-      return { category: "design", workType: "created" };
-    }
-    if (/\b(test|spec|assert|coverage|qa|bug|fix|patch|hotfix|resolve)\b/.test(lower)) {
+    if (/\b(design|ui|ux|css|theme|layout|figma)\b/.test(lower)) return { category: "design", workType: "created" };
+    if (/\b(test|tests|spec|coverage|qa|bug|fix|hotfix)\b/.test(lower)) {
       return { category: "quality_testing", workType: "created" };
     }
-    if (/\b(doc|docs|readme|guide|comment|rfc|spec|architecture)\b/.test(lower)) {
+    if (/\b(doc|docs|readme|guide|rfc|architecture)\b/.test(lower)) {
       return { category: "documentation_research", workType: "original" };
     }
-    if (/\b(slide|pitch|presentation|demo|loom|video|deliverable)\b/.test(lower)) {
+    if (/\b(slide|slides|pitch|presentation|demo|video)\b/.test(lower)) {
       return { category: "presentation_delivery", workType: "presentation" };
     }
-    if (/\b(review|merge|coordination|assign|sync|meeting)\b/.test(lower)) {
-      return { category: "coordination_review", workType: "coordination" };
-    }
-
-    // Default to development
     return { category: "development", workType: "created" };
   }
 
@@ -385,59 +358,23 @@ export class GitHubSyncService {
       if (typeof l === "object" && l && "name" in l) return String((l as { name: string }).name).toLowerCase();
       return "";
     });
-
     const combined = `${labelNames.join(" ")} ${title.toLowerCase()}`;
 
-    if (/\b(bug|test|qa|defect|regression|broken|error|crash)\b/.test(combined)) {
-      return "quality_testing";
-    }
-    if (/\b(design|ui|ux|wireframe|figma|css|frontend|layout)\b/.test(combined)) {
-      return "design";
-    }
-    if (/\b(doc|docs|research|rfc|architecture|proposal|benchmark)\b/.test(combined)) {
-      return "documentation_research";
-    }
-    if (/\b(presentation|pitch|demo|slide|video)\b/.test(combined)) {
-      return "presentation_delivery";
-    }
-    if (/\b(coordination|task|epic|meeting|sprint|standup)\b/.test(combined)) {
-      return "coordination_review";
-    }
+    if (/\b(bug|test|qa|defect|regression|broken|error|crash)\b/.test(combined)) return "quality_testing";
+    if (/\b(design|ui|ux|wireframe|figma|css|layout)\b/.test(combined)) return "design";
+    if (/\b(doc|docs|research|rfc|architecture|proposal)\b/.test(combined)) return "documentation_research";
+    if (/\b(presentation|pitch|demo|slide|video)\b/.test(combined)) return "presentation_delivery";
+    if (/\b(coordination|meeting|sprint|standup|planning)\b/.test(combined)) return "coordination_review";
     return "development";
   }
 
-  public extractCoAuthors(message: string): string[] {
-    const coAuthors: string[] = [];
-    const lines = message.split("\n");
-    for (const line of lines) {
-      const match = line.match(/Co-authored-by:\s*(.+)<([^>]+)>/i);
-      if (match) {
-        const nameOrUser = match[1].trim();
-        coAuthors.push(nameOrUser);
-      }
+  /** Parses "Co-authored-by: Name <email>" trailers. */
+  public extractCoAuthors(message: string): CoAuthor[] {
+    const coAuthors: CoAuthor[] = [];
+    for (const line of message.split("\n")) {
+      const match = line.match(/^\s*Co-authored-by:\s*(.*?)\s*<([^>]+)>/i);
+      if (match) coAuthors.push({ name: match[1].trim(), email: match[2].trim().toLowerCase() });
     }
     return coAuthors;
   }
-}
-
-// ============================================
-// Rate limit handling (FR-INT-05, FR-EVD-10)
-// ============================================
-export async function safeGitHubCall<T>(
-  operation: () => Promise<T>,
-  retries = 3
-): Promise<T> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await operation();
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("rate limit")) {
-        const delay = Math.pow(2, i) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw new Error("GitHub API call failed after retries");
 }
