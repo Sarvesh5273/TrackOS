@@ -297,6 +297,19 @@ const SHOWCASE_ITEMS: DriftWallItem[] = [
 export default function HomePage() {
   const router = useRouter();
   const pageContainerRef = useRef<HTMLDivElement>(null);
+  const [isSignedIn, setIsSignedIn] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/user/profile", { cache: "no-store" })
+      .then((response) => {
+        if (active) setIsSignedIn(response.ok);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  const appHref = isSignedIn ? "/dashboard" : "/login";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -457,10 +470,10 @@ export default function HomePage() {
           {/* Right: Matching Glass Pill Action */}
           <div className="flex items-center gap-3 shrink-0">
             <button
-              onClick={() => router.push("/login")}
+              onClick={() => router.push(appHref)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-black text-xs font-semibold hover:bg-zinc-200 transition-all shadow-[0_2px_12px_rgba(255,255,255,0.18)] active:scale-95"
             >
-              <span>Sign In</span>
+              <span>{isSignedIn ? "Dashboard" : "Sign In"}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -514,9 +527,9 @@ export default function HomePage() {
               intensity={1.4}
               speed={0.35}
               followMouse={true}
-              onClick={() => router.push("/login")}
+              onClick={() => router.push(appHref)}
             >
-              <span>Get Started with GitHub</span>
+              <span>{isSignedIn ? "Open Dashboard" : "Get Started with GitHub"}</span>
               <ArrowRight className="w-4 h-4 ml-1" />
             </SpecularButton>
 
@@ -1201,9 +1214,9 @@ export default function HomePage() {
                 intensity={1.4}
                 speed={0.35}
                 followMouse={true}
-                onClick={() => router.push("/login")}
+                onClick={() => router.push(appHref)}
               >
-                <span>Get Started with GitHub</span>
+                <span>{isSignedIn ? "Open Dashboard" : "Get Started with GitHub"}</span>
                 <ArrowRight className="w-4 h-4 ml-1" />
               </SpecularButton>
 
@@ -1261,7 +1274,7 @@ export default function HomePage() {
                   </a>
                 </li>
                 <li>
-                  <Link href="/login" className="hover:text-white transition-colors">
+                  <Link href={appHref} className="hover:text-white transition-colors">
                     Launch Workspace
                   </Link>
                 </li>
@@ -1332,8 +1345,8 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center gap-6">
-              <Link href="/login" className="hover:text-zinc-300 transition-colors">
-                Sign In
+              <Link href={appHref} className="hover:text-zinc-300 transition-colors">
+                {isSignedIn ? "Dashboard" : "Sign In"}
               </Link>
               <a href="#scoring" className="hover:text-zinc-300 transition-colors">
                 Scoring Whitepaper

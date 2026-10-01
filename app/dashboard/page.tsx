@@ -77,7 +77,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-black text-zinc-100">
       <header className="sticky top-0 z-50 border-b border-zinc-800/80 bg-black/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center">
+          <Link href="/dashboard" aria-label="Your projects" className="flex items-center">
             <TrackOSLogo size="md" />
           </Link>
           <div className="flex items-center gap-3">
