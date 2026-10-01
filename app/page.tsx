@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   ArrowRight,
   Github,
@@ -33,6 +35,7 @@ import DriftWall, { type DriftWallItem } from "@/components/reactbits/DriftWall"
 import MagicBento from "@/components/reactbits/MagicBento";
 import PillNav from "@/components/reactbits/PillNav";
 import ChromaWaves from "@/components/reactbits/ChromaWaves";
+import TrackOSLogo from "@/components/TrackOSLogo";
 import { FigmaLogo, LoomLogo, GoogleDocsLogo, MiroLogo, NotionLogo } from "@/components/PlatformIcons";
 
 // Meaningful, bespoke deliverable UI tickets for DriftWall 3D Stream
@@ -148,7 +151,7 @@ const SHOWCASE_ITEMS: DriftWallItem[] = [
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="w-3.5 h-3.5 text-white" />
-            <span className="text-xs font-mono text-zinc-300 font-semibold">Dispute Room</span>
+            <span className="text-xs font-mono text-zinc-300 font-semibold">Credit Split</span>
           </div>
           <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400 font-bold">50/50</span>
         </div>
@@ -169,7 +172,7 @@ const SHOWCASE_ITEMS: DriftWallItem[] = [
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-xs font-mono text-zinc-300 font-semibold">AI Changelog</span>
+            <span className="text-xs font-mono text-zinc-300 font-semibold">Weekly Update</span>
           </div>
           <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-zinc-300 font-bold">v1.2.0</span>
         </div>
@@ -293,19 +296,147 @@ const SHOWCASE_ITEMS: DriftWallItem[] = [
 
 export default function HomePage() {
   const router = useRouter();
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    gsap.registerPlugin(ScrollTrigger);
+
+    const ctx = gsap.context(() => {
+      // 1. Feature Section Header
+      gsap.from(".feature-header", {
+        scrollTrigger: {
+          trigger: ".feature-header",
+          start: "top 85%",
+          toggleActions: "play none none reverse",
+        },
+        opacity: 0,
+        y: 35,
+        duration: 0.75,
+        ease: "power3.out",
+      });
+
+      // 2. Feature Panels
+      const panels = gsap.utils.toArray<HTMLElement>(".feature-panel");
+      panels.forEach((panel) => {
+        const textCol = panel.querySelector(".feature-text");
+        const widgetCol = panel.querySelector(".feature-widget");
+        const checkItems = panel.querySelectorAll(".feature-check");
+
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: panel,
+            start: "top 80%",
+            toggleActions: "play none none reverse",
+          },
+        });
+
+        if (textCol) {
+          tl.from(
+            textCol,
+            {
+              opacity: 0,
+              y: 30,
+              duration: 0.7,
+              ease: "power3.out",
+            },
+            0
+          );
+        }
+
+        if (widgetCol) {
+          tl.from(
+            widgetCol,
+            {
+              opacity: 0,
+              y: 40,
+              scale: 0.96,
+              duration: 0.75,
+              ease: "power3.out",
+            },
+            0.1
+          );
+        }
+
+        if (checkItems.length > 0) {
+          tl.from(
+            checkItems,
+            {
+              opacity: 0,
+              x: -15,
+              stagger: 0.08,
+              duration: 0.45,
+              ease: "power2.out",
+            },
+            0.25
+          );
+        }
+      });
+
+      // 3. Mathematical Scoring Section
+      const scoringTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: "#scoring",
+          start: "top 80%",
+          toggleActions: "play none none reverse",
+        },
+      });
+
+      scoringTl.from(
+        ".scoring-left",
+        {
+          opacity: 0,
+          x: -30,
+          duration: 0.75,
+          ease: "power3.out",
+        },
+        0
+      );
+
+      scoringTl.from(
+        ".scoring-right",
+        {
+          opacity: 0,
+          x: 30,
+          scale: 0.96,
+          duration: 0.75,
+          ease: "power3.out",
+        },
+        0.1
+      );
+
+      // 5. High-Impact Bottom CTA
+      gsap.from(".cta-container", {
+        scrollTrigger: {
+          trigger: ".cta-container",
+          start: "top 85%",
+          toggleActions: "play none none reverse",
+        },
+        opacity: 0,
+        y: 40,
+        scale: 0.96,
+        duration: 0.8,
+        ease: "power3.out",
+      });
+    }, pageContainerRef);
+
+    return () => ctx.revert();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#000000] text-[#ededed] selection:bg-white selection:text-black relative overflow-hidden font-sans">
+    <div ref={pageContainerRef} className="min-h-screen bg-[#000000] text-[#ededed] selection:bg-white selection:text-black relative overflow-hidden font-sans">
       {/* Precision Dark Dot Grid Background */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-70" />
 
-      {/* Solid Matte Header with Centered PillNav */}
-      <header className="sticky top-0 z-50 bg-[#09090b] border-b border-zinc-800 transition-all">
+      {/* Unified Glassmorphism Header */}
+      <header className="fixed top-0 inset-x-0 z-50 bg-black/25 backdrop-blur-xl border-b border-white/[0.08] transition-all before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
-          {/* Spacer to balance right actions on desktop */}
-          <div className="w-24 hidden sm:block shrink-0" />
+          {/* Left: Medium Balanced TrackOS Logo */}
+          <Link href="/" className="flex items-center shrink-0 group">
+            <TrackOSLogo size="md" />
+          </Link>
 
-          {/* Center: Centered PillNav */}
+          {/* Center: Cohesive Frosted Glass PillNav with GSAP Animations */}
           <div className="flex-1 flex justify-center">
             <PillNav
               items={[
@@ -317,25 +448,19 @@ export default function HomePage() {
                 { label: "Scoring", href: "#scoring" },
               ]}
               baseColor="#ffffff"
-              pillColor="#18181b"
+              pillColor="rgba(255, 255, 255, 0.03)"
               pillTextColor="#a1a1aa"
               hoveredPillTextColor="#000000"
             />
           </div>
 
-          {/* Right: Actions */}
+          {/* Right: Matching Glass Pill Action */}
           <div className="flex items-center gap-3 shrink-0">
-            <Link
-              href="/login"
-              className="text-xs font-medium text-zinc-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-zinc-800 transition-colors hidden sm:inline-block"
-            >
-              Sign In
-            </Link>
             <button
               onClick={() => router.push("/login")}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-black text-xs font-semibold hover:bg-zinc-200 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-black text-xs font-semibold hover:bg-zinc-200 transition-all shadow-[0_2px_12px_rgba(255,255,255,0.18)] active:scale-95"
             >
-              <span>Launch App</span>
+              <span>Sign In</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -343,7 +468,7 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section: Full-Width Section with Edge-to-Edge Chroma Waves Background */}
-      <section className="relative z-10 w-full overflow-hidden pt-24 sm:pt-32 pb-24">
+      <section className="relative z-10 w-full overflow-hidden pt-32 sm:pt-40 pb-24">
         {/* Full-Bleed Chroma Waves Canvas across 100% of browser window */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-75 z-0">
           <ChromaWaves
@@ -366,18 +491,18 @@ export default function HomePage() {
         <div className="relative z-10 px-6 max-w-5xl mx-auto text-center flex flex-col items-center">
           {/* Hero Title: Punchy 2 lines */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] max-w-4xl mb-6 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
-            Fair contribution tracking.
+            A simple task board.
             <br />
-            <span className="text-zinc-400 font-medium">Ship with confidence.</span>
+            <span className="text-zinc-400 font-medium">Fair credit for everyone.</span>
           </h1>
 
           {/* 1-Line Clean Subtitle */}
           <p className="text-base sm:text-lg text-zinc-300 max-w-xl mb-10 leading-relaxed font-normal drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-            Turn GitHub commits, Figma designs, and team deliverables into tamper-proof proof of work.
+            Plan tasks, link GitHub work, and share a signed report of who did what. Built for student and hackathon teams.
           </p>
 
-          {/* Primary CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-4">
+          {/* Single High-Impact Primary CTA */}
+          <div className="flex flex-col items-center gap-3">
             <SpecularButton
               size="lg"
               radius={14}
@@ -391,17 +516,13 @@ export default function HomePage() {
               followMouse={true}
               onClick={() => router.push("/login")}
             >
-              <span>Launch Workspace</span>
+              <span>Get Started with GitHub</span>
               <ArrowRight className="w-4 h-4 ml-1" />
             </SpecularButton>
 
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-medium text-sm transition-all shadow-md"
-            >
-              <Github className="w-4 h-4 text-zinc-300" />
-              <span>Continue with GitHub</span>
-            </Link>
+            <span className="text-xs text-zinc-400 font-mono">
+              Free for open source &middot; No credit card required
+            </span>
           </div>
         </div>
       </section>
@@ -485,7 +606,7 @@ export default function HomePage() {
               <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
               <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
               <div className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-              <span className="ml-3 text-xs font-mono text-zinc-400">teamtrack.ai/verify/rep_7f8a92e104bc</span>
+              <span className="ml-3 text-xs font-mono text-zinc-400">trackos.dev/verify/rep_7f8a92e104bc</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-zinc-900 text-zinc-200 border border-zinc-700 flex items-center gap-1.5">
@@ -585,7 +706,7 @@ export default function HomePage() {
             Stop grading teams by commit count.
           </h2>
           <p className="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto mt-3">
-            Traditional tools only count git lines. TeamTrack AI values the complete software lifecycle.
+            Traditional tools only count git lines. TrackOS values the complete software lifecycle.
           </p>
         </div>
 
@@ -616,11 +737,11 @@ export default function HomePage() {
             </ul>
           </div>
 
-          {/* Right: TeamTrack AI Way */}
+          {/* Right: TrackOS Way */}
           <div className="p-8 rounded-2xl bg-[#09090b] border border-emerald-500/20 shadow-xl space-y-5">
             <div className="flex items-center gap-2.5 text-emerald-400 font-semibold text-sm">
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              <span>With TeamTrack AI</span>
+              <span>With TrackOS</span>
             </div>
             <ul className="space-y-3.5 text-sm text-zinc-300">
               <li className="flex items-start gap-2.5">
@@ -633,11 +754,11 @@ export default function HomePage() {
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Interactive Dispute &amp; Consensus Room to agree on 50/50 joint credit splits.</span>
+                <span>Shared tasks split credit equally; custom splits apply only when everyone on the task approves.</span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Permanent public SHA-256 proof certificates with earned achievement badges.</span>
+                <span>A public report page with a signed seal that shows if anything changed after publishing.</span>
               </li>
             </ul>
           </div>
@@ -684,7 +805,7 @@ export default function HomePage() {
 
       {/* Engineering Intelligence: Linear-Style Alternating Feature Panels (Option A) */}
       <section id="features" className="relative z-10 py-24 px-6 max-w-7xl mx-auto space-y-28">
-        <div className="text-center max-w-3xl mx-auto">
+        <div className="feature-header text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs font-medium uppercase tracking-wider mb-3">
             <Activity className="w-3.5 h-3.5" />
             Engineering Intelligence
@@ -698,8 +819,8 @@ export default function HomePage() {
         </div>
 
         {/* Panel 1: Multi-Signal Ingestion Engine */}
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
+        <div className="feature-panel grid lg:grid-cols-2 gap-12 items-center">
+          <div className="feature-text space-y-6">
             <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-zinc-900 text-zinc-300 border border-zinc-800 text-xs font-mono font-semibold">
               <GitBranch className="w-3.5 h-3.5 text-white" /> 01 / INGESTION ENGINE
             </span>
@@ -707,18 +828,18 @@ export default function HomePage() {
               Connect once. Ingest every deliverable in real-time.
             </h3>
             <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
-              Never fill out a status report again. TeamTrack AI connects directly to your GitHub repository, Figma design system, Loom walkthroughs, and Miro architecture—automatically attributing contributions with zero configuration.
+              Never fill out a status report again. TrackOS connects directly to your GitHub repository, Figma design system, Loom walkthroughs, and Miro architecture—automatically attributing contributions with zero configuration.
             </p>
             <div className="space-y-3 pt-2 text-sm text-zinc-300">
-              <div className="flex items-start gap-3">
+              <div className="feature-check flex items-start gap-3">
                 <Check className="w-4 h-4 text-white shrink-0 mt-1" />
                 <span><strong className="text-white">Instant Webhook Ingestion:</strong> Commits, pull requests, and code reviews sync in under 500ms.</span>
               </div>
-              <div className="flex items-start gap-3">
+              <div className="feature-check flex items-start gap-3">
                 <Check className="w-4 h-4 text-white shrink-0 mt-1" />
                 <span><strong className="text-white">Non-Code Deliverable Parsing:</strong> Automatically attributes Figma frames, Loom demos, and Notion RFCs.</span>
               </div>
-              <div className="flex items-start gap-3">
+              <div className="feature-check flex items-start gap-3">
                 <Check className="w-4 h-4 text-white shrink-0 mt-1" />
                 <span><strong className="text-white">Bot &amp; Noise Pruning:</strong> Automatically strips Dependabot bumps, formatting churn, and empty merges.</span>
               </div>
@@ -726,7 +847,7 @@ export default function HomePage() {
           </div>
 
           {/* Panel 1 Interactive Widget */}
-          <div className="rounded-2xl bg-[#09090b] border border-zinc-800 p-6 shadow-2xl space-y-4">
+          <div className="feature-widget rounded-2xl bg-[#09090b] border border-zinc-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -773,9 +894,9 @@ export default function HomePage() {
         </div>
 
         {/* Panel 2: Mathematical Trust & 50/50 Consensus Room (Alternated) */}
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+        <div className="feature-panel grid lg:grid-cols-2 gap-12 items-center">
           {/* Panel 2 Interactive Widget */}
-          <div className="rounded-2xl bg-[#09090b] border border-zinc-800 p-6 shadow-2xl space-y-5 order-2 lg:order-1">
+          <div className="feature-widget rounded-2xl bg-[#09090b] border border-zinc-800 p-6 shadow-2xl space-y-5 order-2 lg:order-1">
             <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
               <span className="text-xs font-mono text-zinc-300 font-semibold">ROLE WEIGHT CONFIGURATION</span>
               <span className="text-[11px] font-mono text-zinc-500">normalized Σ = 100%</span>
@@ -824,7 +945,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="space-y-6 order-1 lg:order-2">
+          <div className="feature-text space-y-6 order-1 lg:order-2">
             <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-zinc-900 text-zinc-300 border border-zinc-800 text-xs font-mono font-semibold">
               <Scale className="w-3.5 h-3.5 text-white" /> 02 / TRUST ENGINE
             </span>
@@ -832,18 +953,18 @@ export default function HomePage() {
               Zero black boxes. Just explainable math.
             </h3>
             <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
-              Traditional hackathons and engineering sprints grade teams by commit count—rewarding churn and ignoring non-code work. TeamTrack AI uses transparent category weights and a peer consensus room to guarantee fair attribution.
+              Traditional hackathons and engineering sprints grade teams by commit count—rewarding churn and ignoring non-code work. TrackOS uses transparent category weights and a peer consensus room to guarantee fair attribution.
             </p>
             <div className="space-y-3 pt-2 text-sm text-zinc-300">
-              <div className="flex items-start gap-3">
+              <div className="feature-check flex items-start gap-3">
                 <Check className="w-4 h-4 text-white shrink-0 mt-1" />
                 <span><strong className="text-white">Multi-Role Weighting:</strong> Tailor category weights for hackathons, design sprints, or core engineering.</span>
               </div>
-              <div className="flex items-start gap-3">
+              <div className="feature-check flex items-start gap-3">
                 <Check className="w-4 h-4 text-white shrink-0 mt-1" />
-                <span><strong className="text-white">1-Click Dispute Consensus:</strong> Teammates agree on joint attribution with tamper-proof peer co-signing.</span>
+<span><strong className="text-white">Agreed credit splits:</strong> Pair on a task, share its credit. Commits that mention the task are shared the same way.</span>
               </div>
-              <div className="flex items-start gap-3">
+              <div className="feature-check flex items-start gap-3">
                 <Check className="w-4 h-4 text-white shrink-0 mt-1" />
                 <span><strong className="text-white">100% Normalized Math:</strong> Every member score sums to $100\%$ with full mathematical auditability.</span>
               </div>
@@ -852,8 +973,8 @@ export default function HomePage() {
         </div>
 
         {/* Panel 3: Cryptographic Proof & Team Health Radar */}
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
+        <div className="feature-panel grid lg:grid-cols-2 gap-12 items-center">
+          <div className="feature-text space-y-6">
             <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-zinc-900 text-zinc-300 border border-zinc-800 text-xs font-mono font-semibold">
               <Shield className="w-3.5 h-3.5 text-white" /> 03 / PROOF &amp; HEALTH
             </span>
@@ -864,23 +985,23 @@ export default function HomePage() {
               Publish sprint deliverables into permanent cryptographic certificates for resumes, LinkedIn, and hackathon judges. Concurrently monitor workload velocity to prevent pre-deadline hero syndrome and burnout.
             </p>
             <div className="space-y-3 pt-2 text-sm text-zinc-300">
-              <div className="flex items-start gap-3">
+              <div className="feature-check flex items-start gap-3">
                 <Check className="w-4 h-4 text-white shrink-0 mt-1" />
                 <span><strong className="text-white">Public /verify Certificates:</strong> Immutable SHA-256 proof certificates with verifiable provenance.</span>
               </div>
-              <div className="flex items-start gap-3">
+              <div className="feature-check flex items-start gap-3">
                 <Check className="w-4 h-4 text-white shrink-0 mt-1" />
                 <span><strong className="text-white">Team Health &amp; Velocity Radar:</strong> Warns leads when one engineer carries &gt;70% workload at 3:00 AM.</span>
               </div>
-              <div className="flex items-start gap-3">
+              <div className="feature-check flex items-start gap-3">
                 <Check className="w-4 h-4 text-white shrink-0 mt-1" />
-                <span><strong className="text-white">AI Sprint Changelogs:</strong> Synthesizes commit diffs into stakeholder-ready release digests in seconds.</span>
+                <span><strong className="text-white">Weekly updates:</strong> What got done, what&apos;s overdue, and who&apos;s gone quiet, ready to paste into your team chat.</span>
               </div>
             </div>
           </div>
 
           {/* Panel 3 Interactive Widget */}
-          <div className="rounded-2xl bg-[#09090b] border border-zinc-800 p-6 shadow-2xl space-y-4">
+          <div className="feature-widget rounded-2xl bg-[#09090b] border border-zinc-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-white" />
@@ -898,7 +1019,7 @@ export default function HomePage() {
                 <span className="text-[10px] text-zinc-500 font-mono">SHA-256 SEALED</span>
               </div>
               <div className="p-2 rounded-lg bg-black border border-zinc-800 text-xs font-mono text-zinc-300 truncate">
-                https://teamtrack.ai/verify/rep_7f8a92e104bc
+                https://trackos.dev/verify/rep_7f8a92e104bc
               </div>
             </div>
 
@@ -923,6 +1044,8 @@ export default function HomePage() {
         </div>
       </section>
 
+
+
       {/* How It Works 3-Step Walkthrough */}
       <section id="how-it-works" className="relative z-10 py-20 px-6 max-w-7xl mx-auto border-t border-zinc-800/80">
         <div className="text-center mb-16">
@@ -930,7 +1053,7 @@ export default function HomePage() {
             Architecture
           </span>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mt-2 tracking-tight">
-            How TeamTrack AI operates
+            How TrackOS operates
           </h2>
         </div>
 
@@ -961,31 +1084,73 @@ export default function HomePage() {
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Cryptographic Proof</h3>
             <p className="text-sm text-zinc-400 leading-relaxed">
-              Publish provisional reports to generate permanent public URLs with SHA-256 verification hashes and earned contributor achievement badges.
+              Publish the report to get a public link for judges or your professor, sealed with an HMAC-SHA256 signature that reveals later edits.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Transparent Formula Callout Section */}
-      <section id="scoring" className="relative z-10 py-16 px-6 max-w-5xl mx-auto">
-        <div className="rounded-2xl bg-[#09090b] border border-zinc-800 p-8 sm:p-12 shadow-2xl relative overflow-hidden">
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">
-              <Lock className="w-3.5 h-3.5" />
-              100% Explainable &amp; Auditable
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 tracking-tight">
-              Mathematical scoring formula
-            </h2>
-            <p className="text-sm text-zinc-400 mb-6 max-w-2xl leading-relaxed">
-              Every member score is calculated transparently using verifiable mathematical equations:
-            </p>
-            <div className="bg-[#050505] rounded-xl p-5 border border-zinc-800 font-mono text-xs sm:text-sm text-zinc-300 space-y-2 overflow-x-auto">
-              <p className="text-zinc-200">V_(m,e,c) = B_e × I_e × A_(m,e) × Q_e × D_e</p>
-              <p className="text-zinc-400">
-                S_m = 100 × Σ_c(W_c × N_(m,c)) / Σ_jΣ_c(W_c × N_(j,c))
+      {/* Interactive Mathematical Scoring & Auditability */}
+      <section id="scoring" className="relative z-10 py-20 px-6 max-w-7xl mx-auto">
+        <div className="rounded-3xl bg-[#09090b] border border-zinc-800 p-8 sm:p-12 shadow-2xl relative overflow-hidden">
+          <div className="grid lg:grid-cols-12 gap-10 items-center">
+            {/* Left: Math Equations with Clear Structure */}
+            <div className="scoring-left lg:col-span-6 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs font-mono">
+                <Lock className="w-3.5 h-3.5" /> 100% EXPLAINABLE &amp; AUDITABLE MATH
+              </div>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white tracking-tight">
+                Mathematical scoring. <br />
+                <span className="text-zinc-400">Zero black box guesswork.</span>
+              </h2>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Every contribution is evaluated through deterministic equations that normalize effort, peer co-signing, and multi-disciplinary weights.
               </p>
+
+              {/* Formula Cards */}
+              <div className="space-y-3 font-mono">
+                <div className="p-4 rounded-xl bg-black border border-zinc-800 space-y-1">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Deliverable Value Function</span>
+                  <p className="text-sm sm:text-base text-white font-bold tracking-wide">
+                    V<sub className="text-zinc-400">(m,e,c)</sub> = B<sub className="text-zinc-400">e</sub> · I<sub className="text-zinc-400">e</sub> · A<sub className="text-zinc-400">(m,e)</sub> · Q<sub className="text-zinc-400">e</sub> · D<sub className="text-zinc-400">e</sub>
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl bg-black border border-zinc-800 space-y-1">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Normalized Member Attribution</span>
+                  <p className="text-sm sm:text-base text-white font-bold tracking-wide">
+                    S<sub className="text-zinc-400">m</sub> = 100 × (Σ W<sub className="text-zinc-400">c</sub>N<sub className="text-zinc-400">(m,c)</sub>) / (Σ W<sub className="text-zinc-400">c</sub>N<sub className="text-zinc-400">(total,c)</sub>)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Variable Breakdown Matrix */}
+            <div className="scoring-right lg:col-span-6 rounded-2xl bg-zinc-950 border border-zinc-800 p-6 sm:p-7 space-y-4 shadow-xl">
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider font-semibold">
+                Variable Transparency Matrix
+              </span>
+              <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+                <div className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-1">
+                  <p className="text-white font-bold">B_e · Baseline</p>
+                  <p className="text-zinc-400 text-[11px] leading-tight">Deliverable base effort tier</p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-1">
+                  <p className="text-white font-bold">I_e · Complexity</p>
+                  <p className="text-zinc-400 text-[11px] leading-tight">Diff lines, frame count, video length</p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-1">
+                  <p className="text-white font-bold">A_(m,e) · Consensus</p>
+                  <p className="text-zinc-400 text-[11px] leading-tight">Peer co-signed attribution split</p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-1">
+                  <p className="text-white font-bold">W_c · Role Weight</p>
+                  <p className="text-zinc-400 text-[11px] leading-tight">Code 45%, Design 35%, QA 20%</p>
+                </div>
+              </div>
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-mono text-emerald-400 flex items-center justify-between">
+                <span>✓ Mathematical Audit: Guaranteed Σ S_m = 100%</span>
+                <span className="font-bold font-mono">STABLE</span>
+              </div>
             </div>
           </div>
         </div>
@@ -993,65 +1158,190 @@ export default function HomePage() {
 
       {/* High-Impact Bottom Call to Action */}
       <section className="relative z-10 py-24 px-6 text-center max-w-5xl mx-auto">
-        <div className="p-12 sm:p-16 rounded-2xl bg-[#09090b] border border-zinc-800 shadow-2xl relative overflow-hidden">
-          <div className="pointer-events-none absolute top-[-50%] left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-white/[0.03] rounded-full blur-[100px]" />
+        <div className="cta-container p-12 sm:p-16 rounded-3xl bg-[#09090b] border border-zinc-800 shadow-2xl relative overflow-hidden">
+          {/* Ambient Specular Glow */}
+          <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-purple-500/10 rounded-full blur-[120px]" />
 
-          <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">
-            Give every teammate verified credit.
-          </h2>
-          <p className="text-sm sm:text-base text-zinc-400 max-w-lg mx-auto mb-8 leading-relaxed">
-            Create your workspace in seconds. Connect your GitHub repository and start generating tamper-proof proof of work today.
-          </p>
+          <div className="relative z-10 space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs font-mono">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> START IN SECONDS · FREE FOR OPEN SOURCE
+            </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <SpecularButton
-              size="lg"
-              radius={14}
-              tint="#18181b"
-              tintOpacity={0.95}
-              textColor="#ffffff"
-              lineColor="#ffffff"
-              baseColor="#3f3f46"
-              intensity={1.4}
-              speed={0.35}
-              onClick={() => router.push("/login")}
-            >
-              <span>Get Started Free</span>
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </SpecularButton>
+            <h2 className="text-3xl sm:text-5xl font-bold text-white tracking-tight max-w-2xl mx-auto leading-tight">
+              Give every teammate verified credit.
+            </h2>
 
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-medium text-sm transition-all"
-            >
-              <Github className="w-4 h-4 text-zinc-300" />
-              <span>Sign In with GitHub</span>
-            </Link>
+            <p className="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto leading-relaxed">
+              Connect your GitHub repository and Figma design system to start generating tamper-proof proof of work today.
+            </p>
+
+            {/* Feature Trust Badges */}
+            <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-zinc-400 font-mono py-2">
+              <span className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400" /> Instant Webhook Sync
+              </span>
+              <span className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400" /> 100% Normalized Math
+              </span>
+              <span className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400" /> Cryptographic SHA-256 Proof
+              </span>
+            </div>
+
+            {/* CTAs */}
+            <div className="flex flex-col items-center gap-3 pt-4">
+              <SpecularButton
+                size="lg"
+                radius={14}
+                tint="#18181b"
+                tintOpacity={0.95}
+                textColor="#ffffff"
+                lineColor="#ffffff"
+                baseColor="#3f3f46"
+                intensity={1.4}
+                speed={0.35}
+                followMouse={true}
+                onClick={() => router.push("/login")}
+              >
+                <span>Get Started with GitHub</span>
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </SpecularButton>
+
+              <span className="text-xs text-zinc-400 font-mono">
+                No credit card required &middot; 30-second setup
+              </span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Minimalist Pro Footer */}
-      <footer className="relative z-10 border-t border-zinc-800/80 py-12 px-6 max-w-7xl mx-auto text-xs text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-2.5">
-          <div className="w-5 h-5 rounded-md bg-white text-black flex items-center justify-center">
-            <BarChart3 className="w-3 h-3" />
-          </div>
-          <span className="font-semibold text-zinc-200">TeamTrack AI</span>
-          <span className="text-zinc-600">· Proof of Work OS</span>
-        </div>
+      {/* Engineering Intelligence Footer */}
+      <footer className="relative z-10 border-t border-zinc-800/80 bg-[#050507] pt-16 pb-12 px-6">
+        <div className="max-w-7xl mx-auto space-y-12">
+          {/* Top 4-Column Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12 text-xs">
+            {/* Column 1: Brand & Operational Status (2 cols on md) */}
+            <div className="col-span-2 space-y-4">
+              <TrackOSLogo size="lg" />
 
-        <div className="flex items-center gap-6">
-          <span className="flex items-center gap-1.5 text-emerald-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Systems Operational
-          </span>
-          <a href="#scoring" className="hover:text-zinc-300 transition-colors">
-            Scoring Policy
-          </a>
-          <Link href="/login" className="hover:text-zinc-300 transition-colors">
-            Login
-          </Link>
+              <p className="text-zinc-400 text-xs leading-relaxed max-w-sm">
+                Engineering intelligence and cryptographic proof of work for high-velocity teams. Eliminate subjective grading and attribute every contribution with mathematical certainty.
+              </p>
+
+              {/* Real-time System Status Badge */}
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-800 text-[11px] font-mono text-zinc-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-emerald-400 font-semibold">Webhooks Active</span>
+                <span className="text-zinc-500">· 24ms avg latency</span>
+              </div>
+            </div>
+
+            {/* Column 2: Product */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-white font-mono">Product</p>
+              <ul className="space-y-2 text-zinc-400">
+                <li>
+                  <a href="#features" className="hover:text-white transition-colors">
+                    Ingestion Engine
+                  </a>
+                </li>
+                <li>
+                  <a href="#scoring" className="hover:text-white transition-colors">
+                    Mathematical Scoring
+                  </a>
+                </li>
+                <li>
+                  <a href="#how-it-works" className="hover:text-white transition-colors">
+                    Architecture
+                  </a>
+                </li>
+                <li>
+                  <a href="#wall" className="hover:text-white transition-colors">
+                    Deliverable Showcase
+                  </a>
+                </li>
+                <li>
+                  <Link href="/login" className="hover:text-white transition-colors">
+                    Launch Workspace
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 3: Integrations */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-white font-mono">Integrations</p>
+              <ul className="space-y-2 text-zinc-400">
+                <li>
+                  <span className="text-zinc-300">GitHub</span>
+                  <span className="text-zinc-600 text-[10px] ml-1.5 font-mono">Commits &amp; PRs</span>
+                </li>
+                <li>
+                  <span className="text-zinc-300">Figma</span>
+                  <span className="text-zinc-600 text-[10px] ml-1.5 font-mono">Design Frames</span>
+                </li>
+                <li>
+                  <span className="text-zinc-300">Loom</span>
+                  <span className="text-zinc-600 text-[10px] ml-1.5 font-mono">Video Specs</span>
+                </li>
+                <li>
+                  <span className="text-zinc-300">Miro</span>
+                  <span className="text-zinc-600 text-[10px] ml-1.5 font-mono">Architecture</span>
+                </li>
+                <li>
+                  <span className="text-zinc-300">Google Docs &amp; Notion</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 4: Integrity & Math */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-white font-mono">Integrity</p>
+              <ul className="space-y-2 text-zinc-400">
+                <li>
+                  <a href="#scoring" className="hover:text-white transition-colors">
+                    SHA-256 Provenance
+                  </a>
+                </li>
+                <li>
+                  <a href="#scoring" className="hover:text-white transition-colors">
+                    Deterministic Formula
+                  </a>
+                </li>
+                <li>
+                  <a href="#scoring" className="hover:text-white transition-colors">
+                    Bot &amp; Sybil Pruning
+                  </a>
+                </li>
+                <li>
+                  <a href="#scoring" className="hover:text-white transition-colors">
+                    Credit Splits
+                  </a>
+                </li>
+                <li>
+                  <span className="text-emerald-400 font-mono text-[11px]">100% Audit Guarantee</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom Legal & Copyright Bar */}
+          <div className="pt-8 border-t border-zinc-800/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-zinc-500 font-mono">
+            <div>
+              &copy; {new Date().getFullYear()} TrackOS. All rights reserved. Built for engineering integrity.
+            </div>
+
+            <div className="flex items-center gap-6">
+              <Link href="/login" className="hover:text-zinc-300 transition-colors">
+                Sign In
+              </Link>
+              <a href="#scoring" className="hover:text-zinc-300 transition-colors">
+                Scoring Whitepaper
+              </a>
+              <span className="text-zinc-700">·</span>
+              <span className="text-zinc-400">SHA-256 Protocol</span>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

@@ -32,24 +32,27 @@ export default function InvitePage() {
   const [accepted, setAccepted] = useState(false);
 
   useEffect(() => {
-    loadInvite();
-  }, [token]);
-
-  const loadInvite = async () => {
-    try {
-      const res = await fetch(`/api/invite/${token}`);
-      if (res.ok) {
-        const data = await res.json();
-        setInvite(data);
-      } else {
-        setError("This invite link is invalid or has expired.");
+    let active = true;
+    setLoading(true);
+    setError(null);
+    const loadInvite = async () => {
+      try {
+        const res = await fetch(`/api/invite/${token}`);
+        if (!active) return;
+        if (res.ok) {
+          setInvite(await res.json());
+        } else {
+          setError("This invite link is invalid or has expired.");
+        }
+      } catch {
+        if (active) setError("Something went wrong. Please try again.");
+      } finally {
+        if (active) setLoading(false);
       }
-    } catch (e) {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    loadInvite();
+    return () => { active = false; };
+  }, [token]);
 
   const handleAccept = async () => {
     setAccepting(true);
@@ -85,14 +88,14 @@ export default function InvitePage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-6">
         <div className="card p-10 max-w-md w-full text-center">
-          <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-7 h-7 text-red-500" />
           </div>
           <h2 className="text-xl font-bold mb-2">Invite not available</h2>
           <p className="text-muted mb-6">{error}</p>
           <Link href="/" className="btn-outline inline-flex items-center gap-2 text-sm">
             <ArrowLeft className="w-4 h-4" />
-            Go to TeamTrack
+            Go to TrackOS
           </Link>
         </div>
       </div>
@@ -103,7 +106,7 @@ export default function InvitePage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-6">
         <div className="card p-10 max-w-md w-full text-center">
-          <div className="w-14 h-14 rounded-2xl bg-coral-50 flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center mx-auto mb-4">
             <Github className="w-7 h-7 text-coral-500" />
           </div>
           <h2 className="text-xl font-bold mb-2">Sign in to accept</h2>
@@ -128,7 +131,7 @@ export default function InvitePage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-6">
         <div className="card p-10 max-w-md w-full text-center">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-7 h-7 text-emerald-500" />
           </div>
           <h2 className="text-xl font-bold mb-2">You&apos;re in!</h2>
@@ -141,7 +144,7 @@ export default function InvitePage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-6">
       <div className="card p-10 max-w-md w-full">
-        <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-coral-50 mb-4">
+        <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-purple-500/10 mb-4">
           <Users className="w-7 h-7 text-coral-500" />
         </div>
         <h2 className="text-xl font-bold mb-1">Workspace invitation</h2>
@@ -149,7 +152,7 @@ export default function InvitePage() {
           {invite?.inviter?.name || invite?.inviter?.email || "A teammate"} invited you to join
         </p>
 
-        <div className="bg-gray-50 rounded-xl p-4 mb-6">
+        <div className="bg-zinc-900 rounded-xl p-4 mb-6">
           <p className="text-lg font-semibold">{invite?.workspace?.name}</p>
           <div className="flex items-center gap-4 mt-3 text-sm text-muted">
             <span className="inline-flex items-center gap-1.5">
@@ -164,7 +167,7 @@ export default function InvitePage() {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
+          <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-300">
             {error}
           </div>
         )}

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AuthenticatedCursor from "@/components/AuthenticatedCursor";
 
 export const metadata: Metadata = {
-  title: "TeamTrack AI — Fair Contribution Tracking",
-  description: "AI-powered contribution tracking for hackathon teams",
+  title: "TrackOS — Engineering Intelligence & Verifiable Proof of Work",
+  description: "Automated deliverable attribution, burnout detection, and cryptographic proof of work for modern engineering teams.",
 };
 
 export default function RootLayout({
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-background text-foreground antialiased">
+        <AuthenticatedCursor />
         {children}
       </body>
     </html>

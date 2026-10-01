@@ -175,15 +175,15 @@ ${categoriesSummary}
   };
 
   return (
-    <div className="card p-6 bg-white border border-border shadow-soft rounded-2xl space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border">
+    <div className="card p-6 bg-[#09090b] border border-zinc-800 rounded-2xl space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-coral-50 flex items-center justify-center text-coral-600 shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20">
             <Activity className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-base text-foreground">Team Health & Velocity Radar</h3>
-            <p className="text-xs text-muted">
+            <h3 className="font-bold text-base text-white">Team Health & Velocity Radar</h3>
+            <p className="text-xs text-zinc-500">
               Live automated insights on bus factor, burnout risks, and role distribution.
             </p>
           </div>
@@ -193,7 +193,7 @@ ${categoriesSummary}
           onClick={handleCopyDigest}
           className="btn-outline text-xs py-1.5 px-3 inline-flex items-center gap-1.5 flex-shrink-0"
         >
-          {copiedDigest ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+          {copiedDigest ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
           {copiedDigest ? "Digest Copied!" : "Copy Retrospective Digest"}
         </button>
       </div>
@@ -202,67 +202,69 @@ ${categoriesSummary}
         {/* Metric 1: Work Distribution & Hero Syndrome */}
         <div className={`p-4 rounded-xl border ${
           hasHeroSyndrome
-            ? "bg-amber-50/70 border-amber-200 text-amber-900"
-            : "bg-emerald-50/50 border-emerald-100 text-emerald-950"
+            ? "bg-amber-500/5 border-amber-500/20"
+            : "bg-emerald-500/5 border-emerald-500/20"
         }`}>
           <div className="flex items-center gap-2 mb-2">
             {hasHeroSyndrome ? (
-              <Flame className="w-4 h-4 text-amber-600" />
+              <Flame className="w-4 h-4 text-amber-400" />
             ) : (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             )}
-            <span className="text-xs font-bold uppercase tracking-wider">
+            <span className={`text-xs font-bold uppercase tracking-wider ${
+              hasHeroSyndrome ? "text-amber-300" : "text-emerald-300"
+            }`}>
               {hasHeroSyndrome ? "Hero Syndrome Risk" : "Balanced Velocity"}
             </span>
           </div>
 
           {hasHeroSyndrome ? (
-            <p className="text-xs leading-relaxed text-amber-800">
-              <span className="font-bold">{topContributor}</span> is responsible for{" "}
-              <span className="font-bold">{formatPercent(topContributorRatio)}</span> of total evidence. Consider redistributing code reviews or pairing to avoid burnout.
+            <p className="text-xs leading-relaxed text-zinc-400">
+              <span className="font-bold text-white">{topContributor}</span> is responsible for{" "}
+              <span className="font-bold text-amber-300">{formatPercent(topContributorRatio)}</span> of total evidence. Consider redistributing code reviews or pairing to avoid burnout.
             </p>
           ) : (
-            <p className="text-xs leading-relaxed text-emerald-800">
+            <p className="text-xs leading-relaxed text-zinc-400">
               Contributions are evenly distributed across team members. No single point of failure (healthy bus factor).
             </p>
           )}
         </div>
 
         {/* Metric 2: Peer Trust & Co-Signing */}
-        <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
+        <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800">
           <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="w-4 h-4 text-coral-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-muted">
+            <ShieldCheck className="w-4 h-4 text-purple-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
               Peer Trust Index
             </span>
           </div>
           <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-2xl font-black text-foreground">
+            <span className="text-2xl font-black text-white">
               {formatPercent(peerTrustMetric.pct)}
             </span>
-            <span className="text-xs text-muted">
+            <span className="text-xs text-zinc-500">
               ({peerTrustMetric.confirmed}/{peerTrustMetric.total} co-signed)
             </span>
           </div>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-zinc-500">
             Non-code deliverables (Figma, docs, pitches) vouched by teammates.
           </p>
         </div>
 
         {/* Metric 3: Automated Effort Balance */}
-        <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
+        <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-4 h-4 text-coral-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-muted">
+            <TrendingUp className="w-4 h-4 text-purple-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
               Category Balance
             </span>
           </div>
           <div className="space-y-1.5">
             {categoryAlignment.slice(0, 3).map((cat) => (
               <div key={cat.id} className="flex items-center justify-between text-xs">
-                <span className="text-muted truncate max-w-[120px]">{cat.name}:</span>
-                <span className="font-semibold text-foreground">
-                  {formatPercent(cat.actualPct)} <span className="text-muted font-normal">/ {formatPercent(cat.targetPct)}</span>
+                <span className="text-zinc-500 truncate max-w-[120px]">{cat.name}:</span>
+                <span className="font-semibold text-white">
+                  {formatPercent(cat.actualPct)} <span className="text-zinc-500 font-normal">/ {formatPercent(cat.targetPct)}</span>
                 </span>
               </div>
             ))}

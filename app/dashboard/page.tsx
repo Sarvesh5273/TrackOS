@@ -3,342 +3,199 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Plus,
-  ArrowRight,
-  BarChart3,
-  Users,
-  Calendar,
-  Loader2,
-  LogOut,
-  Github,
-  Trash2,
-  X,
-  AlertTriangle,
-} from "lucide-react";
-
 import { createBrowserClient } from "@supabase/ssr";
+import { AlertTriangle, CalendarDays, CheckCircle2, CircleDot, LogOut, Plus, Users } from "lucide-react";
+import TrackOSLogo from "@/components/TrackOSLogo";
+import { Avatar, Pill, Spinner, api, primaryButton } from "@/components/workspace/ui";
+import { formatShortDate } from "@/lib/utils";
 
-interface Workspace {
+interface DashboardWorkspace {
   id: string;
   name: string;
   description: string | null;
   status: string;
+  task_key?: string;
   start_date: string;
   end_date: string;
+  my_role: string;
   member_count: number;
-  evidence_count: number;
+  open_task_count: number;
+  done_task_count: number;
+  my_open_task_count: number;
+  overdue_task_count: number;
+}
+
+interface Profile {
+  name: string;
+  username: string;
+  avatarUrl: string;
+}
+
+function statusPill(status: string) {
+  if (status === "published") return <Pill tone="purple">Published</Pill>;
+  if (status === "under_review" || status === "frozen") return <Pill tone="amber">In review</Pill>;
+  if (status === "archived") return <Pill>Archived</Pill>;
+  return <Pill tone="green">Active</Pill>;
+}
+
+function daysLeft(end: string) {
+  const diff = Math.ceil((new Date(end).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  if (diff < 0) return `Ended ${formatShortDate(end)}`;
+  if (diff === 0) return "Due today";
+  return `${diff} day${diff === 1 ? "" : "s"} left`;
 }
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [workspaces, setWorkspaces] = useState<DashboardWorkspace[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [workspaceToDelete, setWorkspaceToDelete] = useState<Workspace | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [profile, setProfile] = useState<{
-    id: string;
-    name: string;
-    username: string;
-    email: string;
-    avatarUrl: string;
-    declaredRoles: string[];
-  } | null>(null);
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchWorkspaces();
-    fetchProfile();
-  }, []);
+    api<{ workspaces: DashboardWorkspace[] }>("/api/workspaces")
+      .then((d) => setWorkspaces(d.workspaces))
+      .catch((err) => {
+        if (err.status === 401) router.push("/login?next=/dashboard");
+        else setError(err.message);
+      })
+      .finally(() => setLoading(false));
+    api<{ profile: Profile }>("/api/user/profile")
+      .then((d) => setProfile(d.profile))
+      .catch(() => {});
+  }, [router]);
 
-  const fetchProfile = async () => {
-    try {
-      const res = await fetch("/api/user/profile");
-      if (res.ok) {
-        const data = await res.json();
-        setProfile(data.profile);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchWorkspaces = async () => {
-    try {
-      const res = await fetch("/api/workspaces");
-      if (res.ok) {
-        const data = await res.json();
-        setWorkspaces(data.workspaces || []);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteWorkspace = async (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    if (!workspaceToDelete) return;
-
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/workspaces/${workspaceToDelete.id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        setWorkspaces((prev) => prev.filter((w) => w.id !== workspaceToDelete.id));
-        setWorkspaceToDelete(null);
-      } else {
-        const data = await res.json();
-        alert(data.error || "Failed to delete workspace");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Failed to delete workspace");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.error(e);
-    }
+  const signOut = async () => {
+    const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    await supabase.auth.signOut();
     router.push("/login");
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-emerald-50 text-emerald-600 border-emerald-200";
-      case "draft":
-        return "bg-amber-50 text-amber-600 border-amber-200";
-      case "frozen":
-        return "bg-blue-50 text-blue-600 border-blue-200";
-      case "under_review":
-        return "bg-purple-50 text-purple-600 border-purple-200";
-      case "published":
-        return "bg-coral-50 text-coral-600 border-coral-200";
-      default:
-        return "bg-gray-50 text-gray-600 border-gray-200";
-    }
-  };
+  const myOpen = workspaces.reduce((s, w) => s + (w.my_open_task_count || 0), 0);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Top Navigation */}
-      <nav className="sticky top-0 z-50 glass border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-coral-500 flex items-center justify-center shadow-sm">
-              <BarChart3 className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-lg font-bold tracking-tight">TeamTrack AI</span>
-          </div>
-
+    <div className="min-h-screen bg-black text-zinc-100">
+      <header className="sticky top-0 z-50 border-b border-zinc-800/80 bg-black/80 backdrop-blur-xl">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
+          <Link href="/" className="flex items-center">
+            <TrackOSLogo size="md" />
+          </Link>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-100">
-              <div className="w-6 h-6 rounded-full bg-coral-500 text-white flex items-center justify-center text-xs font-bold overflow-hidden">
-                {profile?.avatarUrl ? (
-                  <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  profile?.name?.[0]?.toUpperCase() || "U"
-                )}
-              </div>
-              <div className="text-xs">
-                <span className="font-semibold text-foreground block max-w-[120px] truncate">
-                  {profile?.name || "Developer"}
-                </span>
-                {profile?.username && (
-                  <span className="text-[10px] text-muted flex items-center gap-0.5">
-                    @{profile.username}
-                  </span>
-                )}
-              </div>
+            <div className="flex items-center gap-2">
+              <Avatar name={profile?.name || "You"} url={profile?.avatarUrl} size="sm" />
+              <span className="text-sm text-zinc-300 hidden sm:inline max-w-[160px] truncate">{profile?.name}</span>
             </div>
-
             <button
-              onClick={handleLogout}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-muted hover:text-foreground"
+              onClick={signOut}
+              aria-label="Sign out"
               title="Sign out"
+              className="p-2 rounded-lg border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600"
             >
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
-      </nav>
+      </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-10">
-        {/* Header */}
-        <div className="flex items-end justify-between mb-10">
+      <main className="max-w-6xl mx-auto px-6 py-10">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Your Workspaces</h1>
-            <p className="text-muted">
-              {workspaces.length > 0
-                ? `Managing ${workspaces.length} workspace${workspaces.length !== 1 ? "s" : ""}`
-                : "Create your first workspace to get started"}
+            <h1 className="text-2xl font-semibold text-white">Your projects</h1>
+            <p className="text-sm text-zinc-500 mt-1">
+              {myOpen > 0 ? `You have ${myOpen} open task${myOpen === 1 ? "" : "s"} across your projects.` : "Plan tasks, track who did what, and share a fair credit report."}
             </p>
           </div>
-          <Link
-            href="/workspaces/new"
-            className="btn-coral inline-flex items-center gap-2"
-          >
+          <Link href="/workspaces/new" className={primaryButton}>
             <Plus className="w-4 h-4" />
-            New Workspace
+            New project
           </Link>
         </div>
 
-        {/* Workspaces Grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-coral-500" />
+          <div className="py-20 flex justify-center">
+            <Spinner className="w-6 h-6 text-purple-400" />
           </div>
+        ) : error ? (
+          <p role="alert" className="text-sm text-red-300">
+            {error}
+          </p>
         ) : workspaces.length === 0 ? (
-          <div className="card p-12 text-center max-w-lg mx-auto">
-            <div className="w-16 h-16 rounded-2xl bg-coral-50 flex items-center justify-center mx-auto mb-4">
-              <BarChart3 className="w-8 h-8 text-coral-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">No workspaces yet</h3>
-            <p className="text-muted mb-6">
-              Create a workspace to start tracking your team&apos;s contributions.
+          <div className="rounded-2xl border border-dashed border-zinc-800 p-12 text-center">
+            <h2 className="text-lg font-semibold text-white mb-2">Start your first project</h2>
+            <p className="text-sm text-zinc-400 max-w-md mx-auto mb-6">
+              Create a project, invite your team with a link, and put your tasks on the board. Joined someone else&apos;s
+              project? Open the invite link they sent you.
             </p>
-            <Link href="/workspaces/new" className="btn-coral inline-flex items-center gap-2">
+            <Link href="/workspaces/new" className={primaryButton}>
               <Plus className="w-4 h-4" />
-              Create Workspace
+              Create a project
             </Link>
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {workspaces.map((ws) => (
-              <Link
-                key={ws.id}
-                href={`/workspaces/${ws.id}`}
-                className="card p-6 group block"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-coral-50 flex items-center justify-center">
-                    <BarChart3 className="w-5 h-5 text-coral-500" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium border capitalize ${getStatusColor(
-                        ws.status
-                      )}`}
-                    >
-                      {ws.status.replace("_", " ")}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setWorkspaceToDelete(ws);
-                      }}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Delete workspace"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+          <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {workspaces.map((w) => {
+              const total = w.open_task_count + w.done_task_count;
+              const pct = total > 0 ? Math.round((w.done_task_count / total) * 100) : 0;
+              return (
+                <li key={w.id}>
+                  <Link
+                    href={`/workspaces/${w.id}`}
+                    className="block h-full rounded-2xl border border-zinc-800 bg-[#09090b] p-5 hover:border-zinc-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h2 className="text-base font-semibold text-white truncate">{w.name}</h2>
+                      {statusPill(w.status)}
+                    </div>
+                    <p className="text-sm text-zinc-500 line-clamp-2 min-h-[2.5rem]">{w.description || "No description"}</p>
 
-                <h3 className="text-lg font-semibold mb-1 group-hover:text-coral-500 transition-colors">
-                  {ws.name}
-                </h3>
-                {ws.description && (
-                  <p className="text-sm text-muted mb-4 line-clamp-2">{ws.description}</p>
-                )}
+                    <div className="mt-4">
+                      <div className="flex justify-between text-[11px] text-zinc-500 mb-1">
+                        <span>
+                          {w.done_task_count} of {total} tasks done
+                        </span>
+                        <span>{pct}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                        <div className="h-full bg-purple-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
 
-                <div className="flex items-center gap-4 text-sm text-muted mb-4">
-                  <div className="flex items-center gap-1.5">
-                    <Users className="w-4 h-4" />
-                    <span>{ws.member_count || 0} members</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <BarChart3 className="w-4 h-4" />
-                    <span>{ws.evidence_count || 0} items</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 text-sm text-muted pt-4 border-t border-border">
-                  <Calendar className="w-4 h-4" />
-                  <span>
-                    {new Date(ws.start_date).toLocaleDateString()} —{" "}
-                    {new Date(ws.end_date).toLocaleDateString()}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex items-center gap-1 text-sm font-medium text-coral-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span>Open workspace</span>
-                  <ArrowRight className="w-4 h-4" />
-                </div>
-              </Link>
-            ))}
-          </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5" />
+                        {w.member_count}
+                      </span>
+                      {w.my_open_task_count > 0 && (
+                        <span className="flex items-center gap-1 text-zinc-300">
+                          <CircleDot className="w-3.5 h-3.5" />
+                          {w.my_open_task_count} for you
+                        </span>
+                      )}
+                      {w.overdue_task_count > 0 && (
+                        <span className="flex items-center gap-1 text-red-300">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          {w.overdue_task_count} overdue
+                        </span>
+                      )}
+                      {w.status === "published" ? (
+                        <span className="flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Report published
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <CalendarDays className="w-3.5 h-3.5" />
+                          {daysLeft(w.end_date)}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </main>
-
-      {/* Delete Workspace Confirmation Modal */}
-      {workspaceToDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
-          onClick={() => setWorkspaceToDelete(null)}
-        >
-          <div
-            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-red-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center text-red-600">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <button
-                onClick={() => setWorkspaceToDelete(null)}
-                className="text-muted hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Delete &ldquo;{workspaceToDelete.name}&rdquo;?
-            </h3>
-            <p className="text-sm text-muted mb-6 leading-relaxed">
-              Are you sure you want to delete this workspace? This will permanently erase all contribution records, synced GitHub commits &amp; PRs, generated reports, and remove all member associations.
-            </p>
-
-            <div className="flex items-center gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setWorkspaceToDelete(null)}
-                disabled={deleting}
-                className="btn-outline text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteWorkspace}
-                disabled={deleting}
-                className="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors inline-flex items-center gap-2 disabled:opacity-50 shadow-sm"
-              >
-                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                Yes, Delete Workspace
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
