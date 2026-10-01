@@ -59,3 +59,4 @@ prisma/migrations/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+.env*
