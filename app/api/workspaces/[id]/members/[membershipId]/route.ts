@@ -1,79 +1,40 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { HttpError, audit, dbError, handle, isUuid, requireMember } from "@/lib/api/auth";
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string; membershipId: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+export const dynamic = "force-dynamic";
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+/** Leader removes a member or revokes a pending invite. */
+export async function DELETE(_request: Request, { params }: { params: { id: string; membershipId: string } }) {
+  return handle(async () => {
+    const { admin, user } = await requireMember(params.id, { leader: true });
+    if (!isUuid(params.membershipId)) throw new HttpError(404, "Member not found.");
 
-    const { data: membership } = await supabase
+    const { data: target, error } = await admin
       .from("memberships")
-      .select("role")
-      .eq("workspace_id", params.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!membership || membership.role !== "leader") {
-      return NextResponse.json({ error: "Forbidden: Leader only" }, { status: 403 });
-    }
-
-    const { data: target, error: targetError } = await supabase
-      .from("memberships")
-      .select("role")
+      .select("id, user_id, role, invitation_state")
       .eq("id", params.membershipId)
       .eq("workspace_id", params.id)
       .maybeSingle();
+    if (error) throw dbError(error);
+    if (!target) throw new HttpError(404, "Member not found.");
+    if (target.role === "leader") throw new HttpError(400, "The project leader can't be removed.");
 
-    if (targetError) {
-      return NextResponse.json({ error: targetError.message }, { status: 500 });
-    }
-
-    if (!target) {
-      return NextResponse.json({ error: "Membership not found" }, { status: 404 });
-    }
-
-    if (target.role === "leader") {
-      return NextResponse.json({ error: "Cannot revoke a leader" }, { status: 400 });
-    }
-
-    const { error: deleteError } = await supabase
+    const { error: delError } = await admin
       .from("memberships")
       .delete()
-      .eq("id", params.membershipId)
+      .eq("id", target.id)
       .eq("workspace_id", params.id);
+    if (delError) throw dbError(delError);
 
-    if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
-    }
+    await audit(admin, {
+      actorId: user.id,
+      workspaceId: params.id,
+      action: target.invitation_state === "pending" ? "invite.revoked" : "member.removed",
+      objectType: "membership",
+      objectId: target.id,
+      previousValue: { user_id: target.user_id, role: target.role },
+    });
 
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("API error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+  });
 }

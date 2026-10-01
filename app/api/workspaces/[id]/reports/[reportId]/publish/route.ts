@@ -1,71 +1,99 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { HttpError, audit, dbError, handle, isUuid, loadWorkspace, requireMember } from "@/lib/api/auth";
+import { loadMemberIdentities } from "@/lib/identity";
+import { createSeal } from "@/lib/reports/seal";
 
-export async function POST(
-  request: Request,
-  { params }: { params: { id: string; reportId: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+export const dynamic = "force-dynamic";
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function POST(_request: Request, { params }: { params: { id: string; reportId: string } }) {
+  return handle(async () => {
+    const { admin, user } = await requireMember(params.id, { leader: true });
+    await loadWorkspace(admin, params.id);
+    if (!isUuid(params.reportId)) throw new HttpError(404, "Report not found.");
 
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("role")
-      .eq("workspace_id", params.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!membership || membership.role !== "leader") {
-      return NextResponse.json({ error: "Forbidden: Leader only" }, { status: 403 });
-    }
-
-    const { data: report, error: reportError } = await supabase
+    const { data: report, error } = await admin
       .from("reports")
-      .update({ status: "published", published_by: user.id, published_at: new Date().toISOString() })
+      .select("*")
       .eq("id", params.reportId)
       .eq("workspace_id", params.id)
-      .select()
-      .single();
+      .maybeSingle();
+    if (error) throw dbError(error);
+    if (!report) throw new HttpError(404, "Report not found.");
+    if (report.status === "published") throw new HttpError(409, "This report is already published.");
 
-    if (reportError) {
-      return NextResponse.json({ error: reportError.message }, { status: 500 });
+    const { data: latest } = await admin
+      .from("reports")
+      .select("id, version")
+      .eq("workspace_id", params.id)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latest && latest.id !== report.id) {
+      throw new HttpError(409, `A newer version (v${latest.version}) exists. Publish that one instead.`);
     }
 
-    await supabase.from("audit_events").insert({
-      actor_id: user.id,
-      workspace_id: params.id,
+    // Issues still open are shown on the public page
+    const { data: openIssues, error: issueError } = await admin
+      .from("disputes")
+      .select("id, type, reason, requested_change, created_by, created_at")
+      .eq("workspace_id", params.id)
+      .in("state", ["open", "under_discussion"]);
+    if (issueError) throw dbError(issueError);
+
+    const names = new Map(
+      (await loadMemberIdentities(admin, params.id)).map((m) => [m.userId, m.name] as [string, string])
+    );
+    if ((openIssues || []).length > 0) {
+      await admin
+        .from("disputes")
+        .update({ state: "unresolved_at_publication", visible_in_published_report: true })
+        .in(
+          "id",
+          (openIssues || []).map((d: any) => d.id)
+        );
+    }
+
+    const publishedAt = new Date().toISOString();
+    const scoringLogic = {
+      ...(report.scoring_logic || {}),
+      openIssues: (openIssues || []).map((d: any) => ({
+        type: d.type,
+        reason: d.reason,
+        requestedChange: d.requested_change,
+        raisedBy: names.get(d.created_by) || "Teammate",
+        raisedAt: d.created_at,
+      })),
+    };
+
+    const { data: published, error: pubError } = await admin
+      .from("reports")
+      .update({ status: "published", published_at: publishedAt, published_by: user.id, scoring_logic: scoringLogic })
+      .eq("id", report.id)
+      .select()
+      .single();
+    if (pubError) throw dbError(pubError);
+
+    // Seal what's actually stored (read back), so the public page can detect edits
+    const seal = createSeal(published as any, publishedAt);
+    const { data: sealed, error: sealError } = await admin
+      .from("reports")
+      .update({ scoring_logic: { ...(published.scoring_logic || {}), seal } })
+      .eq("id", report.id)
+      .select()
+      .single();
+    if (sealError) throw dbError(sealError);
+
+    await admin.from("workspaces").update({ status: "published" }).eq("id", params.id);
+
+    await audit(admin, {
+      actorId: user.id,
+      workspaceId: params.id,
       action: "report.published",
-      object_type: "report",
-      object_id: report.id,
-      new_value: { version: report.version },
+      objectType: "report",
+      objectId: report.id,
+      newValue: { version: report.version, openIssues: (openIssues || []).length, contentHash: seal.contentHash },
     });
 
-    return NextResponse.json({ report });
-  } catch (err) {
-    console.error("API error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+    return NextResponse.json({ report: sealed });
+  });
 }

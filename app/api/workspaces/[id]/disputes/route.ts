@@ -1,189 +1,127 @@
+// Report review issues ("Something looks wrong").
+// Members raise them; the leader resolves or rejects with a note.
+
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { z } from "zod";
+import { HttpError, audit, dbError, handle, isUuid, readJson, requireMember } from "@/lib/api/auth";
+import { loadMemberIdentities } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const admin = createAdminClient();
-    const { data: disputes, error } = await admin
-      .from("disputes")
-      .select("*")
-      .eq("workspace_id", params.id)
-      .order("created_at", { ascending: false });
+export async function GET(_request: Request, { params }: { params: { id: string } }) {
+  return handle(async () => {
+    const { admin } = await requireMember(params.id);
+    const [{ data, error }, members] = await Promise.all([
+      admin.from("disputes").select("*").eq("workspace_id", params.id).order("created_at", { ascending: false }),
+      loadMemberIdentities(admin, params.id),
+    ]);
+    if (error) throw dbError(error);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ disputes: disputes || [] });
-  } catch (err: any) {
-    console.error("GET disputes error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+    const names = new Map(members.map((m) => [m.userId, m.name] as [string, string]));
+    const disputes = (data || []).map((d: any) => ({
+      ...d,
+      created_by_name: names.get(d.created_by) || "Former member",
+      resolved_by_name: d.resolved_by ? names.get(d.resolved_by) || "Former member" : null,
+    }));
+    return NextResponse.json({ disputes });
+  });
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+const createSchema = z.object({
+  type: z.enum(["score", "evidence", "attribution", "category"]),
+  targetId: z.string().max(100).nullable().optional(),
+  reason: z.string().trim().min(5, "Explain what's wrong (at least a few words)").max(2000),
+  requestedChange: z.string().trim().min(3, "Say what should change").max(1000),
+});
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  return handle(async () => {
+    const { admin, user } = await requireMember(params.id);
+    const input = await readJson(request, createSchema);
 
-    const body = await request.json();
-    const { evidenceId, title, reason, proposedSplitPercent } = body;
-
-    if (!title) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
-    }
-
-    const admin = createAdminClient();
-    const { data: dispute, error } = await admin
+    const { data, error } = await admin
       .from("disputes")
       .insert({
         workspace_id: params.id,
-        raised_by: user.id,
-        status: "open",
-        evidence_item_id: evidenceId || null,
-        reason: reason || title,
-        proposed_split: proposedSplitPercent || 50,
+        created_by: user.id,
+        type: input.type,
+        target_id: input.targetId || null,
+        reason: input.reason,
+        requested_change: input.requestedChange,
+        state: "open",
       })
       .select()
       .single();
+    if (error) throw dbError(error);
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    await audit(admin, {
+      actorId: user.id,
+      workspaceId: params.id,
+      action: "dispute.raised",
+      objectType: "dispute",
+      objectId: data.id,
+      newValue: { type: input.type, targetId: input.targetId || null },
+    });
 
-    return NextResponse.json({ dispute });
-  } catch (err: any) {
-    console.error("POST dispute error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+    return NextResponse.json({ dispute: data }, { status: 201 });
+  });
 }
 
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+const updateSchema = z.object({
+  disputeId: z.string().uuid(),
+  action: z.enum(["resolve", "reject", "withdraw"]),
+  note: z.string().trim().max(1000).optional(),
+});
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
+  return handle(async () => {
+    const { admin, user, isLeader } = await requireMember(params.id);
+    const input = await readJson(request, updateSchema);
+    if (!isUuid(input.disputeId)) throw new HttpError(404, "Issue not found.");
 
-    const body = await request.json();
-    const { disputeId, action, resolutionNotes } = body;
-
-    if (!disputeId || !action) {
-      return NextResponse.json({ error: "Missing disputeId or action" }, { status: 400 });
-    }
-
-    const admin = createAdminClient();
-
-    // 1. Fetch dispute
-    const { data: dispute, error: dError } = await admin
+    const { data: dispute, error } = await admin
       .from("disputes")
       .select("*")
-      .eq("id", disputeId)
+      .eq("id", input.disputeId)
       .eq("workspace_id", params.id)
-      .single();
+      .maybeSingle();
+    if (error) throw dbError(error);
+    if (!dispute) throw new HttpError(404, "Issue not found.");
+    if (!["open", "under_discussion"].includes(dispute.state)) throw new HttpError(409, "This issue is already closed.");
 
-    if (dError || !dispute) {
-      return NextResponse.json({ error: "Dispute not found" }, { status: 404 });
+    if (input.action === "withdraw") {
+      if (dispute.created_by !== user.id) throw new HttpError(403, "Only the person who raised it can withdraw it.");
+    } else {
+      if (!isLeader) throw new HttpError(403, "Only the project leader can resolve issues.");
+      if (!input.note || input.note.length < 3) throw new HttpError(400, "Add a short note explaining the decision.");
     }
 
-    const newStatus = action === "accept" ? "resolved" : "rejected";
+    const update = {
+      state: input.action === "reject" ? "rejected" : "resolved",
+      resolution: input.action === "withdraw" ? "withdrawn" : input.action === "resolve" ? "accepted" : "rejected",
+      resolution_rationale: input.note || (input.action === "withdraw" ? "Withdrawn by the person who raised it." : null),
+      resolved_by: user.id,
+      resolved_at: new Date().toISOString(),
+    };
 
-    // 2. If accepted and linked to evidence, add co-author credit
-    if (action === "accept" && dispute.evidence_item_id) {
-      const { data: evidence } = await admin
-        .from("evidence_items")
-        .select("collaborator_usernames")
-        .eq("id", dispute.evidence_item_id)
-        .single();
-
-      if (evidence) {
-        const existing = evidence.collaborator_usernames || [];
-        const { data: userData } = await admin.auth.admin.getUserById(dispute.raised_by);
-        const nameToAdd = userData?.user?.user_metadata?.user_name || userData?.user?.email || "co-author";
-        if (!existing.includes(nameToAdd)) {
-          await admin
-            .from("evidence_items")
-            .update({
-              collaborator_usernames: [...existing, nameToAdd],
-              verification_state: "collaborator_confirmed",
-            })
-            .eq("id", dispute.evidence_item_id);
-        }
-      }
-    }
-
-    // 3. Update dispute record
-    const { data: updated, error: uError } = await admin
+    const { data, error: upError } = await admin
       .from("disputes")
-      .update({
-        status: newStatus,
-        resolution_notes: resolutionNotes || `Marked as ${newStatus} by team consensus`,
-        resolved_at: new Date().toISOString(),
-      })
-      .eq("id", disputeId)
+      .update(update)
+      .eq("id", dispute.id)
       .select()
       .single();
+    if (upError) throw dbError(upError);
 
-    if (uError) {
-      return NextResponse.json({ error: uError.message }, { status: 500 });
-    }
+    await audit(admin, {
+      actorId: user.id,
+      workspaceId: params.id,
+      action: `dispute.${input.action === "resolve" ? "resolved" : input.action === "reject" ? "rejected" : "withdrawn"}`,
+      objectType: "dispute",
+      objectId: dispute.id,
+      previousValue: { state: dispute.state },
+      newValue: update,
+    });
 
-    return NextResponse.json({ dispute: updated });
-  } catch (err: any) {
-    console.error("PUT dispute error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+    return NextResponse.json({ dispute: data });
+  });
 }

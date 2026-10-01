@@ -1,52 +1,31 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function GET(
-  request: Request,
-  { params }: { params: { token: string } }
-) {
+export const dynamic = "force-dynamic";
+
+/** Public: what an invite link is for (used before the visitor signs in). */
+export async function GET(_request: Request, { params }: { params: { token: string } }) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
-
-    // Requires the get_invite_by_token() security definer function (see supabase/invite_policies.sql)
-    // so that anonymous users can read the workspace name + leader without tripping RLS.
-    const { data, error } = await supabase.rpc("get_invite_by_token", {
-      p_token: params.token,
-    });
-
-    if (error || !data) {
-      return NextResponse.json(
-        { error: "Invite link is invalid or has expired" },
-        { status: 404 }
-      );
+    if (!/^[0-9a-f-]{36}$/i.test(params.token)) {
+      return NextResponse.json({ error: "Invite link is invalid or has expired" }, { status: 404 });
     }
 
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc("get_invite_by_token", { p_token: params.token });
+    if (error || !data) {
+      return NextResponse.json({ error: "Invite link is invalid or has expired" }, { status: 404 });
+    }
+
+    // Don't expose the leader's full email to whoever holds the link
+    const email = typeof data.inviter_email === "string" ? data.inviter_email.split("@")[0] : "";
     return NextResponse.json({
       workspace: { id: data.workspace_id, name: data.workspace_name },
-      inviter: { name: data.inviter_name, email: data.inviter_email },
+      inviter: { name: data.inviter_name || null, email },
       role: data.role,
       expiresAt: data.expires_at,
     });
   } catch (err) {
-    console.error("API error:", err);
+    console.error("Invite lookup error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

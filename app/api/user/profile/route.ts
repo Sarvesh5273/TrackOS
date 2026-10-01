@@ -1,116 +1,59 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { HttpError, handle, readJson, requireUser } from "@/lib/api/auth";
+import { createClient } from "@/lib/supabase/server";
+import { declaredGithubLogin, displayNameOf, verifiedGithubLogin } from "@/lib/identity";
+import type { User } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const meta = user.user_metadata || {};
-    const name = meta.name || meta.full_name || meta.user_name || user.email?.split("@")[0] || "Developer";
-    const username = meta.user_name || meta.preferred_username || "";
-    const avatarUrl = meta.avatar_url || "";
-    const declaredRoles = meta.declared_roles || ["Developer"];
-
-    return NextResponse.json({
-      profile: {
-        id: user.id,
-        email: user.email,
-        name,
-        username,
-        avatarUrl,
-        declaredRoles,
-      },
-    });
-  } catch (err: any) {
-    console.error("Profile GET error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+function toProfile(user: User) {
+  const meta = (user.user_metadata || {}) as Record<string, any>;
+  const verified = verifiedGithubLogin(user);
+  return {
+    id: user.id,
+    email: user.email,
+    name: displayNameOf(user),
+    username: verified || declaredGithubLogin(user) || "",
+    githubUsername: declaredGithubLogin(user) || "",
+    githubVerified: verified,
+    avatarUrl: meta.avatar_url || "",
+    declaredRoles: Array.isArray(meta.declared_roles) ? meta.declared_roles : [],
+  };
 }
 
+export async function GET() {
+  return handle(async () => {
+    const user = await requireUser();
+    return NextResponse.json({ profile: toProfile(user) });
+  });
+}
+
+const updateSchema = z.object({
+  name: z.string().trim().min(1, "Name can't be empty").max(80).optional(),
+  githubUsername: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/^@/, ""))
+    .refine((v) => v === "" || /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(v), "That doesn't look like a GitHub username")
+    .optional(),
+  declaredRoles: z.array(z.string().trim().min(1).max(40)).max(5).optional(),
+});
+
 export async function PUT(request: Request) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+  return handle(async () => {
+    await requireUser();
+    const input = await readJson(request, updateSchema);
+    const supabase = createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const data: Record<string, unknown> = {};
+    if (input.name !== undefined) data.name = input.name;
+    if (input.githubUsername !== undefined) data.github_username = input.githubUsername || null;
+    if (input.declaredRoles !== undefined) data.declared_roles = input.declaredRoles;
 
-    const body = await request.json();
-    const { name, declaredRoles } = body as {
-      name?: string;
-      declaredRoles?: string[];
-    };
+    const { data: updated, error } = await supabase.auth.updateUser({ data });
+    if (error || !updated.user) throw new HttpError(500, "Couldn't save your profile. Try again.");
 
-    const updatedMetadata = {
-      ...user.user_metadata,
-      ...(name ? { name } : {}),
-      ...(declaredRoles ? { declared_roles: declaredRoles } : {}),
-    };
-
-    const { data: updatedUser, error: updateError } = await supabase.auth.updateUser({
-      data: updatedMetadata,
-    });
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      profile: {
-        id: updatedUser.user.id,
-        email: updatedUser.user.email,
-        name: updatedUser.user.user_metadata?.name || name,
-        username: updatedUser.user.user_metadata?.user_name || "",
-        avatarUrl: updatedUser.user.user_metadata?.avatar_url || "",
-        declaredRoles: updatedUser.user.user_metadata?.declared_roles || declaredRoles,
-      },
-    });
-  } catch (err: any) {
-    console.error("Profile PUT error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+    return NextResponse.json({ success: true, profile: toProfile(updated.user) });
+  });
 }

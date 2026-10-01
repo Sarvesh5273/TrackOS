@@ -1,126 +1,60 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
+// A teammate co-signs a self-reported (manual) evidence item.
+
 import { NextResponse } from "next/server";
+import { HttpError, assertWorkspaceOpen, audit, dbError, handle, isUuid, loadWorkspace, requireMember } from "@/lib/api/auth";
 
-export async function POST(
-  request: Request,
-  { params }: { params: { id: string; evidenceId: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+export const dynamic = "force-dynamic";
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function POST(_request: Request, { params }: { params: { id: string; evidenceId: string } }) {
+  return handle(async () => {
+    const { admin, user } = await requireMember(params.id);
+    assertWorkspaceOpen(await loadWorkspace(admin, params.id));
+    if (!isUuid(params.evidenceId)) throw new HttpError(404, "Item not found.");
 
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("id, role")
-      .eq("workspace_id", params.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!membership) {
-      return NextResponse.json({ error: "Forbidden: Not a member of this workspace" }, { status: 403 });
-    }
-
-    // Fetch the evidence item
-    const { data: evidenceItem, error: fetchError } = await supabase
+    const { data: item, error } = await admin
       .from("evidence_items")
-      .select("*")
+      .select("id, source, source_id, actor_id, metadata, verification_state")
       .eq("id", params.evidenceId)
       .eq("workspace_id", params.id)
-      .single();
-
-    if (fetchError || !evidenceItem) {
-      return NextResponse.json({ error: "Evidence item not found" }, { status: 404 });
+      .maybeSingle();
+    if (error) throw dbError(error);
+    if (!item) throw new HttpError(404, "Item not found.");
+    if (item.source !== "manual") throw new HttpError(400, "Only self-reported items need a teammate's confirmation.");
+    if (!item.actor_id || item.actor_id === user.id) {
+      throw new HttpError(400, "You can't confirm your own work. Ask a teammate.");
     }
 
-    if (evidenceItem.actor_id === user.id) {
-      return NextResponse.json({ error: "You cannot co-sign your own evidence item" }, { status: 400 });
+    const meta = (item.metadata || {}) as Record<string, any>;
+    const confirmations = Array.isArray(meta.confirmations) ? meta.confirmations : [];
+    if (confirmations.some((c: any) => c.userId === user.id)) {
+      return NextResponse.json({ success: true, message: "You already confirmed this." });
     }
+    const nextConfirmations = [...confirmations, { userId: user.id, confirmedAt: new Date().toISOString() }];
 
-    const meta = (evidenceItem.metadata || {}) as Record<string, any>;
-    const confirmations = Array.isArray(meta.confirmations) ? [...meta.confirmations] : [];
-
-    const alreadyConfirmed = confirmations.some((c: any) => c.userId === user.id);
-    if (!alreadyConfirmed) {
-      confirmations.push({
-        userId: user.id,
-        userEmail: user.email,
-        confirmedAt: new Date().toISOString(),
-      });
-    }
-
-    const newQualityFactor = 0.9; // Boost quality factor for collaborator confirmed
-    const newCalculatedValue = (evidenceItem.base_weight || 1.0) * (evidenceItem.impact_factor || 1.0) * newQualityFactor;
-
-    // Update evidence item
-    const { data: updatedEvidence, error: updateError } = await supabase
+    const { error: upError } = await admin
       .from("evidence_items")
       .update({
         verification_state: "collaborator_confirmed",
-        quality_factor: newQualityFactor,
-        calculated_value: newCalculatedValue,
-        metadata: {
-          ...meta,
-          confirmations,
-        },
+        quality_factor: 0.9,
+        metadata: { ...meta, confirmations: nextConfirmations },
       })
-      .eq("id", params.evidenceId)
-      .select()
-      .single();
+      .eq("id", item.id);
+    if (upError) throw dbError(upError);
 
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
+    await admin
+      .from("manual_evidence")
+      .update({ review_status: "approved", confirmations: nextConfirmations })
+      .eq("id", item.source_id)
+      .eq("workspace_id", params.id);
 
-    // Update manual evidence record if linked
-    if (evidenceItem.source === "manual" && evidenceItem.source_id) {
-      await supabase
-        .from("manual_evidence")
-        .update({
-          review_status: "approved",
-          confirmations,
-        })
-        .eq("id", evidenceItem.source_id);
-    }
-
-    // Log audit event
-    await supabase.from("audit_events").insert({
-      actor_id: user.id,
-      workspace_id: params.id,
+    await audit(admin, {
+      actorId: user.id,
+      workspaceId: params.id,
       action: "evidence.confirmed",
-      object_type: "evidence_item",
-      object_id: params.evidenceId,
-      new_value: { confirmedBy: user.email, confirmationCount: confirmations.length },
+      objectType: "evidence",
+      objectId: item.id,
     });
 
-    return NextResponse.json({
-      success: true,
-      evidence: updatedEvidence,
-      message: "Evidence successfully co-signed and verified",
-    });
-  } catch (err: any) {
-    console.error("API error:", err);
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
-  }
+    return NextResponse.json({ success: true, message: "Confirmed. Thanks for vouching for your teammate." });
+  });
 }

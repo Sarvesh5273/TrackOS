@@ -1,267 +1,156 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { HttpError, audit, dbError, handle, loadWorkspace, requireMember } from "@/lib/api/auth";
 import { createClient } from "@/lib/supabase/server";
 import { GitHubSyncService } from "@/lib/integrations/github";
+import { GITHUB_SYNC_VERSION, toEvidenceRow } from "@/lib/integrations/ingest";
+import { applyTaskAutomation } from "@/lib/integrations/taskAutomation";
+import { createActorResolver, loadMemberIdentities } from "@/lib/identity";
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
-    const workspaceId = params.id;
+export async function POST(_request: Request, { params }: { params: { id: string } }) {
+  return handle(async () => {
+    const { admin, user } = await requireMember(params.id);
+    const workspace = await loadWorkspace(admin, params.id);
 
-    // Check membership
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("role")
-      .eq("workspace_id", workspaceId)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!membership) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-    // Get integration
-    const { data: integration, error: intError } = await supabase
+    const { data: integration, error: intError } = await admin
       .from("integrations")
       .select("*")
-      .eq("workspace_id", workspaceId)
+      .eq("workspace_id", params.id)
       .eq("provider", "github")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (intError) throw dbError(intError);
+    if (!integration) throw new HttpError(400, "Connect a GitHub repository first.");
 
-    if (intError || !integration) {
-      return NextResponse.json(
-        { error: "No GitHub integration found. Please connect your repository first." },
-        { status: 400 }
-      );
+    const res = (integration.selected_resources || {}) as Record<string, any>;
+    const [owner, repo] = res.owner && res.name ? [res.owner, res.name] : String(res.repo || "").split("/");
+    if (!owner || !repo) throw new HttpError(400, "The saved repository is invalid. Reconnect GitHub.");
+
+    // Token: saved PAT -> the caller's GitHub sign-in token -> server GITHUB_TOKEN -> none (public repos)
+    const {
+      data: { session },
+    } = await createClient().auth.getSession();
+    const token = integration.credential_ref || session?.provider_token || process.env.GITHUB_TOKEN || null;
+
+    let normalized;
+    try {
+      normalized = await new GitHubSyncService(token).syncRepository({
+        owner,
+        repo,
+        since: workspace.start_date ? new Date(workspace.start_date) : undefined,
+        until: workspace.end_date ? new Date(new Date(workspace.end_date).getTime() + 24 * 3600 * 1000) : undefined,
+      });
+    } catch (err: any) {
+      await admin
+        .from("integrations")
+        .update({ status: "error", error_message: String(err?.message || "Sync failed").slice(0, 300) })
+        .eq("id", integration.id);
+      throw new HttpError(502, "GitHub sync failed. Check the repository access and try again.");
     }
 
-    // Parse repository owner and name from selected_resources
-    let owner = "";
-    let repo = "";
+    const members = await loadMemberIdentities(admin, params.id);
+    const resolve = createActorResolver(members);
+    const memberIds = new Set(members.map((m) => m.userId));
 
-    const res = integration.selected_resources as any;
-    if (res) {
-      if (res.owner && res.name) {
-        owner = res.owner;
-        repo = res.name;
-      } else if (typeof res.repo === "string") {
-        const parts = res.repo.split("/");
-        owner = parts[0];
-        repo = parts[1];
-      } else if (Array.isArray(res) && res[0]?.id) {
-        const parts = String(res[0].id).split("/");
-        owner = parts[0];
-        repo = parts[1];
-      }
-    }
+    const { data: existing, error: exError } = await admin
+      .from("evidence_items")
+      .select("id, source, source_id, actor_id, actor_username, actor_email, metadata")
+      .eq("workspace_id", params.id)
+      .eq("sync_version", GITHUB_SYNC_VERSION);
+    if (exError) throw dbError(exError);
 
-    if (!owner || !repo) {
-      return NextResponse.json(
-        { error: "Invalid repository configuration in integration." },
-        { status: 400 }
-      );
-    }
+    const existingByKey = new Map<string, any>();
+    for (const row of existing || []) existingByKey.set(`${row.source}:${row.source_id}`, row);
 
-    // Token resolution cascade:
-    // 1. Stored integration token (PAT)
-    // 2. User's Supabase session provider_token
-    // 3. Server environment GITHUB_TOKEN
-    // 4. undefined (unauthenticated access for public repos)
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = integration.credential_ref || session?.provider_token || process.env.GITHUB_TOKEN;
+    const rows = normalized.map((e) => toEvidenceRow(params.id, e, resolve));
+    const toInsert = rows.filter((r) => !existingByKey.has(`${r.source}:${r.source_id}`));
 
-    // Get workspace date range
-    const { data: workspace } = await supabase
-      .from("workspaces")
-      .select("start_date, end_date")
-      .eq("id", workspaceId)
-      .single();
-
-    const syncService = new GitHubSyncService(token);
-    const evidence = await syncService.syncRepository({
-      accessToken: token,
-      owner,
-      repo,
-      since: workspace?.start_date ? new Date(workspace.start_date) : undefined,
-      until: workspace?.end_date ? new Date(workspace.end_date) : undefined,
+    // Keep PR state fresh (e.g. merged after the last sync)
+    const prUpdates = rows.filter((r) => {
+      const prev = existingByKey.get(`${r.source}:${r.source_id}`);
+      return prev && r.source === "github_pr" && prev.metadata?.merged !== (r.metadata as any)?.merged;
     });
 
-    if (!evidence || evidence.length === 0) {
-      await supabase
-        .from("integrations")
-        .update({
-          last_synced_at: new Date().toISOString(),
-          status: "active",
-          error_message: null,
-        })
-        .eq("id", integration.id);
+    // Re-match older rows that nobody was matched to (e.g. a teammate joined later)
+    const remaps = (existing || [])
+      .filter((row: any) => !row.actor_id || !memberIds.has(row.actor_id))
+      .map((row: any) => ({ row, match: resolve(row.actor_username, row.actor_email) }))
+      .filter((x) => x.match && x.match.userId !== x.row.actor_id);
 
-      return NextResponse.json({
-        synced: 0,
-        message: "Sync completed. No commits or pull requests found in the workspace date range.",
-      });
+    for (let i = 0; i < toInsert.length; i += 200) {
+      const { error } = await admin.from("evidence_items").insert(toInsert.slice(i, i + 200));
+      if (error) throw dbError(error);
     }
-
-    // Query workspace memberships for identity auto-mapping
-    const { data: members } = await supabase
-      .from("memberships")
-      .select("user_id, role")
-      .eq("workspace_id", workspaceId);
-
-    // Fetch user profiles for mapped matching
-    const memberUserIds = (members || []).map((m) => m.user_id).filter(Boolean);
-    const usernameToUserId = new Map<string, string>();
-    const emailToUserId = new Map<string, string>();
-
-    // Link logged in user
-    if (user.user_metadata?.user_name) {
-      usernameToUserId.set(user.user_metadata.user_name.toLowerCase(), user.id);
-    }
-    if (user.email) {
-      emailToUserId.set(user.email.toLowerCase(), user.id);
-    }
-
-    // Query existing evidence items in database to prevent duplicates
-    const { data: existingItems } = await supabase
-      .from("evidence_items")
-      .select("id, source, source_id, created_at")
-      .eq("workspace_id", workspaceId);
-
-    // Identify and prune any duplicate records already in DB
-    const existingKeyToId = new Map<string, string>();
-    const duplicateIdsToDelete: string[] = [];
-
-    for (const item of existingItems || []) {
-      if (!item.source_id) continue;
-      const key = `${item.source}:${item.source_id}`;
-      if (existingKeyToId.has(key)) {
-        duplicateIdsToDelete.push(item.id);
-      } else {
-        existingKeyToId.set(key, item.id);
-      }
-    }
-
-    if (duplicateIdsToDelete.length > 0) {
-      await supabase
+    for (const r of prUpdates) {
+      await admin
         .from("evidence_items")
-        .delete()
-        .in("id", duplicateIdsToDelete);
+        .update({ metadata: r.metadata, work_type: r.work_type, description: r.description, summary: r.summary })
+        .eq("workspace_id", params.id)
+        .eq("source", r.source)
+        .eq("source_id", r.source_id);
     }
-
-    // Populate evidence items with attribution
-    const syncVersion = "v1";
-    const newEvidenceToInsert: any[] = [];
-
-    for (const e of evidence) {
-      const key = `${e.source}:${e.sourceId}`;
-      // Skip if already in database
-      if (existingKeyToId.has(key)) {
-        continue;
-      }
-
-      const lowerUsername = (e.actorUsername || "").toLowerCase();
-      const lowerEmail = (e.actorEmail || "").toLowerCase();
-
-      const matchedUserId =
-        usernameToUserId.get(lowerUsername) ||
-        (lowerEmail ? emailToUserId.get(lowerEmail) : undefined) ||
-        null;
-
-      const isBot = Boolean(
-        lowerUsername.includes("[bot]") ||
-        lowerUsername.includes("bot") ||
-        lowerUsername.includes("actions-user") ||
-        lowerUsername.includes("dependabot") ||
-        lowerUsername.includes("renovate")
-      );
-
-      newEvidenceToInsert.push({
-        workspace_id: workspaceId,
-        source: e.source,
-        source_id: e.sourceId,
-        source_url: e.sourceUrl,
-        event_type: e.eventType,
-        actor_id: matchedUserId,
-        actor_username: e.actorUsername,
-        actor_email: e.actorEmail || null,
-        attribution_confidence: matchedUserId ? 1.0 : 0.5,
-        mapping_status: matchedUserId ? "mapped" : "unmapped",
-        timestamp: e.timestamp.toISOString(),
-        summary: e.summary,
-        description: e.description || null,
-        category: e.category,
-        work_type: e.workType,
-        metadata: e.metadata,
-        base_weight: e.baseWeight,
-        impact_factor: 1.0,
-        quality_factor: 1.0,
-        duplication_factor: 1.0,
-        calculated_value: e.baseWeight,
-        sync_version: syncVersion,
-        verification_state: "provider_verified",
-        is_duplicate: false,
-        is_bot_generated: isBot,
-        is_excluded: isBot,
-        exclusion_reason: isBot ? "Detected as automated bot activity" : null,
-      });
-
-      // Mark key as seen
-      existingKeyToId.set(key, "pending");
-    }
-
-    // Insert only new distinct evidence items
-    if (newEvidenceToInsert.length > 0) {
-      const { error: insertError } = await supabase
+    for (const { row, match } of remaps) {
+      await admin
         .from("evidence_items")
-        .insert(newEvidenceToInsert);
-
-      if (insertError) {
-        console.error("Failed to insert evidence items:", insertError);
-        throw insertError;
-      }
+        .update({ actor_id: match!.userId, attribution_confidence: match!.confidence, mapping_status: "mapped" })
+        .eq("id", row.id);
     }
 
-    // Update integration status and timestamp
-    await supabase
+    const automation = await applyTaskAutomation(
+      admin,
+      workspace as any,
+      rows.map((r) => ({
+        source: r.source,
+        summary: r.summary,
+        description: r.description,
+        metadata: r.metadata as Record<string, any>,
+        actorId: r.actor_id,
+        timestamp: r.timestamp,
+      })),
+      user.id
+    );
+
+    await admin
       .from("integrations")
       .update({
         last_synced_at: new Date().toISOString(),
-        sync_cursor: syncVersion,
+        sync_cursor: GITHUB_SYNC_VERSION,
         status: "active",
         error_message: null,
       })
       .eq("id", integration.id);
 
-    // Audit log
-    await supabase.from("audit_events").insert({
-      actor_id: user.id,
-      workspace_id: workspaceId,
+    await audit(admin, {
+      actorId: user.id,
+      workspaceId: params.id,
       action: "integration.synced",
-      object_type: "integration",
-      object_id: integration.id,
-      new_value: {
-        newItemsCount: newEvidenceToInsert.length,
-        totalItemsCount: evidence.length,
-        syncVersion,
+      objectType: "integration",
+      objectId: integration.id,
+      newValue: {
         repo: `${owner}/${repo}`,
+        newItems: toInsert.length,
+        updatedPRs: prUpdates.length,
+        rematched: remaps.length,
+        tasksStarted: automation.started,
+        tasksCompleted: automation.completed,
       },
     });
 
+    const unmatched = rows.filter((r) => !r.actor_id && !r.is_bot_generated).length;
+    const parts = [`${toInsert.length} new item${toInsert.length === 1 ? "" : "s"}`];
+    if (automation.completed) parts.push(`${automation.completed} task${automation.completed === 1 ? "" : "s"} moved to Done`);
+    if (automation.started) parts.push(`${automation.started} started`);
+
     return NextResponse.json({
-      synced: newEvidenceToInsert.length,
-      total: evidence.length,
-      syncVersion,
-      message: `Sync complete. ${newEvidenceToInsert.length} new items synced (${evidence.length} total in repo).`,
+      synced: toInsert.length,
+      total: rows.length,
+      unmatched,
+      tasksCompleted: automation.completed,
+      tasksStarted: automation.started,
+      message: `Sync complete: ${parts.join(", ")}.`,
     });
-
-  } catch (error: any) {
-    console.error("Sync error:", error);
-    return NextResponse.json({ error: error.message || "Failed to sync repository" }, { status: 500 });
-  }
+  });
 }
-

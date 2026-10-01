@@ -1,232 +1,155 @@
+// GitHub webhook: push, pull_request, pull_request_review.
+// Requires GITHUB_WEBHOOK_SECRET (the same secret entered in GitHub's webhook settings).
+
 import { NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { GitHubSyncService } from "@/lib/integrations/github";
-import { createHmac } from "crypto";
+import { GitHubSyncService, type NormalizedEvidence } from "@/lib/integrations/github";
+import { GITHUB_SYNC_VERSION, toEvidenceRow } from "@/lib/integrations/ingest";
+import { applyTaskAutomation } from "@/lib/integrations/taskAutomation";
+import { createActorResolver, loadMemberIdentities } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
 
+function validSignature(rawBody: string, header: string | null, secret: string): boolean {
+  if (!header?.startsWith("sha256=")) return false;
+  const expected = Buffer.from(createHmac("sha256", secret).update(rawBody).digest("hex"), "hex");
+  const actual = Buffer.from(header.slice("sha256=".length), "hex");
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
 export async function POST(request: Request) {
+  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+  if (!secret) {
+    return NextResponse.json(
+      { error: "Webhook secret isn't configured on the server (GITHUB_WEBHOOK_SECRET)." },
+      { status: 503 }
+    );
+  }
+
+  const rawBody = await request.text();
+  if (!validSignature(rawBody, request.headers.get("x-hub-signature-256"), secret)) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
+  const eventType = request.headers.get("x-github-event");
+  if (eventType === "ping") return NextResponse.json({ message: "Webhook connected." });
+  if (!eventType || !["push", "pull_request", "pull_request_review"].includes(eventType)) {
+    return NextResponse.json({ message: `Ignored event: ${eventType || "unknown"}` });
+  }
+
+  let payload: any;
   try {
-    const eventType = request.headers.get("x-github-event");
-    const signature = request.headers.get("x-hub-signature-256");
-    const rawBody = await request.text();
+    payload = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  }
 
-    if (!eventType) {
-      return NextResponse.json({ error: "Missing x-github-event header" }, { status: 400 });
-    }
+  const fullName = String(payload.repository?.full_name || "").toLowerCase();
+  if (!fullName) return NextResponse.json({ error: "No repository in payload" }, { status: 400 });
+  const [owner, repo] = fullName.split("/");
 
-    // Ping event test from GitHub webhook settings
-    if (eventType === "ping") {
-      return NextResponse.json({ message: "Pong! Webhook successfully configured." }, { status: 200 });
-    }
-
-    let payload: any;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
-    }
-
-    const repoFullName = payload.repository?.full_name?.toLowerCase();
-    if (!repoFullName) {
-      return NextResponse.json({ error: "No repository information in payload" }, { status: 400 });
-    }
-
+  try {
     const admin = createAdminClient();
-
-    // Find integration matching repository
-    const { data: integrations, error: intError } = await admin
+    const { data: integrations, error } = await admin
       .from("integrations")
-      .select("id, workspace_id, selected_resources, credential_ref")
+      .select("id, workspace_id, selected_resources")
       .eq("provider", "github")
       .eq("status", "active");
+    if (error) throw error;
 
-    if (intError || !integrations || integrations.length === 0) {
-      return NextResponse.json({ message: "No active integrations found" }, { status: 200 });
-    }
-
-    // Match integration with repository
-    const matchingIntegrations = integrations.filter((int: any) => {
-      const res = int.selected_resources;
-      if (!res) return false;
-      const resRepo = (res.fullName || res.repo || "").toLowerCase();
-      return (
-        resRepo === repoFullName ||
-        resRepo.endsWith(`/${repoFullName}`) ||
-        repoFullName.endsWith(resRepo)
-      );
+    const matching = (integrations || []).filter((i: any) => {
+      const res = i.selected_resources || {};
+      return String(res.fullName || res.repo || "").toLowerCase() === fullName;
     });
+    if (matching.length === 0) return NextResponse.json({ message: "No project uses this repository." });
 
-    if (matchingIntegrations.length === 0) {
-      return NextResponse.json({ message: "No matching workspace for this repository" }, { status: 200 });
+    const service = new GitHubSyncService();
+    const events: NormalizedEvidence[] = [];
+
+    if (eventType === "push" && Array.isArray(payload.commits)) {
+      for (const commit of payload.commits) {
+        const message = String(commit.message || "");
+        const { category, workType, conventionalType } = service.classifyCommitMessage(message);
+        events.push({
+          source: "github_commit",
+          sourceId: commit.id,
+          sourceUrl: commit.url || `https://github.com/${fullName}/commit/${commit.id}`,
+          eventType: "commit",
+          actorUsername: commit.author?.username || commit.author?.name || "unknown",
+          actorEmail: commit.author?.email || undefined,
+          timestamp: new Date(commit.timestamp || Date.now()),
+          summary: message.split("\n")[0].substring(0, 200) || "Git commit",
+          description: message.substring(0, 5000),
+          category,
+          workType,
+          metadata: {
+            sha: commit.id,
+            conventionalType,
+            messageLength: message.length,
+            coAuthors: service.extractCoAuthors(message),
+            isMerge: false,
+          },
+          baseWeight: 1.0,
+        });
+      }
+    } else if (eventType === "pull_request" && payload.pull_request) {
+      events.push(service.normalizePullRequest(payload.pull_request, owner, repo));
+    } else if (eventType === "pull_request_review" && payload.review && payload.pull_request) {
+      if (payload.review.submitted_at) {
+        events.push(
+          service.normalizeReview(payload.review, payload.pull_request.number, payload.pull_request.html_url)
+        );
+      }
     }
 
-    const syncService = new GitHubSyncService();
-    let processedCount = 0;
+    let processed = 0;
+    for (const integration of matching) {
+      const workspaceId = integration.workspace_id as string;
+      const { data: workspace } = await admin
+        .from("workspaces")
+        .select("id, name, task_key, status")
+        .eq("id", workspaceId)
+        .maybeSingle();
+      if (!workspace) continue;
 
-    for (const integration of matchingIntegrations) {
-      const workspaceId = integration.workspace_id;
-      const newItems: any[] = [];
+      const resolve = createActorResolver(await loadMemberIdentities(admin, workspaceId));
+      const rows = events.map((e) => toEvidenceRow(workspaceId, e, resolve));
+      if (rows.length === 0) continue;
 
-      // 1. Process PUSH event (commits)
-      if (eventType === "push" && Array.isArray(payload.commits)) {
-        for (const commit of payload.commits) {
-          const message = commit.message || "";
-          const coAuthors = syncService.extractCoAuthors(message);
-          const firstLine = message.split("\n")[0];
-          const summary = firstLine.length > 200 ? firstLine.substring(0, 197) + "..." : firstLine;
-          const { category, workType, conventionalType } = syncService.classifyCommitMessage(firstLine);
-
-          let baseWeight = 1.0;
-          if (conventionalType === "feat") baseWeight = 1.4;
-          else if (conventionalType === "fix") baseWeight = 1.3;
-          else if (conventionalType === "refactor") baseWeight = 1.2;
-          else if (conventionalType === "chore" || conventionalType === "style") baseWeight = 0.8;
-
-          newItems.push({
-            workspace_id: workspaceId,
-            source: "github_commit",
-            source_id: commit.id,
-            source_url: commit.url || `https://github.com/${repoFullName}/commit/${commit.id}`,
-            event_type: "commit",
-            actor_username: commit.author?.username || commit.author?.name || "unknown",
-            actor_email: commit.author?.email,
-            collaborator_usernames: coAuthors,
-            timestamp: new Date(commit.timestamp || Date.now()).toISOString(),
-            summary: summary || "Git commit",
-            description: message,
-            category,
-            work_type: workType,
-            metadata: {
-              sha: commit.id,
-              conventionalType,
-              messageLength: message.length,
-              coAuthors,
-              addedCount: commit.added?.length || 0,
-              modifiedCount: commit.modified?.length || 0,
-              removedCount: commit.removed?.length || 0,
-            },
-            base_weight: baseWeight,
-            impact_factor: 1.0,
-            quality_factor: 1.0,
-            confidence_factor: 1.0,
-            verification_state: "provider_verified",
-          });
-        }
+      // PRs update in place (e.g. when merged); commits/reviews are insert-once
+      const { error: upsertError } = await admin.from("evidence_items").upsert(rows, {
+        onConflict: "workspace_id,source,source_id,sync_version",
+        ignoreDuplicates: eventType !== "pull_request",
+      });
+      if (upsertError) {
+        console.error("Webhook upsert error:", upsertError.message);
+        continue;
       }
+      processed += rows.length;
 
-      // 2. Process PULL_REQUEST event
-      else if (eventType === "pull_request" && payload.pull_request) {
-        const pr = payload.pull_request;
-        const isMerged = Boolean(pr.merged_at || payload.action === "closed" && pr.merged);
-        const { category } = syncService.classifyCommitMessage(pr.title);
+      await applyTaskAutomation(
+        admin,
+        workspace as any,
+        rows.map((r) => ({
+          source: r.source,
+          summary: r.summary,
+          description: r.description,
+          metadata: r.metadata as Record<string, any>,
+          actorId: r.actor_id,
+          timestamp: r.timestamp,
+        })),
+        null
+      );
 
-        newItems.push({
-          workspace_id: workspaceId,
-          source: "github_pr",
-          source_id: String(pr.id || pr.number),
-          source_url: pr.html_url,
-          event_type: "pull_request",
-          actor_username: pr.user?.login || "unknown",
-          timestamp: new Date(pr.created_at || Date.now()).toISOString(),
-          summary: pr.title.substring(0, 200),
-          description: pr.body || undefined,
-          category,
-          work_type: isMerged ? "created" : "review",
-          metadata: {
-            prNumber: pr.number,
-            state: pr.state,
-            merged: isMerged,
-            mergedAt: pr.merged_at,
-            action: payload.action,
-          },
-          base_weight: 2.5,
-          impact_factor: isMerged ? 1.5 : 1.0,
-          quality_factor: 1.0,
-          confidence_factor: 1.0,
-          verification_state: "provider_verified",
-        });
-      }
-
-      // 3. Process PULL_REQUEST_REVIEW event
-      else if (eventType === "pull_request_review" && payload.review) {
-        const review = payload.review;
-        const pr = payload.pull_request;
-        const body = (review.body || "").trim();
-        const isSubstantive = body.length > 80 || body.includes("```") || body.includes("`");
-        const isChangesRequested = review.state === "changes_requested" || review.state === "CHANGES_REQUESTED";
-
-        let baseWeight = 1.5;
-        let impactFactor = 1.0;
-        if (isChangesRequested) {
-          baseWeight = 2.5;
-          impactFactor = 2.0;
-        } else if (isSubstantive) {
-          baseWeight = 2.0;
-          impactFactor = 1.4;
-        } else if (body.toLowerCase() === "lgtm" || body.length < 10) {
-          baseWeight = 0.8;
-          impactFactor = 0.6;
-        }
-
-        newItems.push({
-          workspace_id: workspaceId,
-          source: "github_review",
-          source_id: String(review.id),
-          source_url: review.html_url || pr?.html_url,
-          event_type: "pr_review",
-          actor_username: review.user?.login || "unknown",
-          timestamp: new Date(review.submitted_at || Date.now()).toISOString(),
-          summary: isChangesRequested
-            ? `Requested changes on PR #${pr?.number || ""}`
-            : isSubstantive
-            ? `In-depth code review on PR #${pr?.number || ""}`
-            : `Reviewed PR #${pr?.number || ""} (${review.state})`,
-          description: body || undefined,
-          category: "coordination_review",
-          work_type: "review",
-          metadata: {
-            prNumber: pr?.number,
-            reviewState: review.state,
-            isSubstantive,
-            feedbackLength: body.length,
-          },
-          base_weight: baseWeight,
-          impact_factor: impactFactor,
-          quality_factor: 1.0,
-          confidence_factor: 1.0,
-          verification_state: "provider_verified",
-        });
-      }
-
-      // Upsert new items to Supabase
-      if (newItems.length > 0) {
-        const { error: upsertError } = await admin.from("evidence_items").upsert(newItems, {
-          onConflict: "workspace_id,source,source_id",
-          ignoreDuplicates: false,
-        });
-
-        if (!upsertError) {
-          processedCount += newItems.length;
-        } else {
-          console.error("Webhook upsert error:", upsertError);
-        }
-      }
-
-      // Update last_synced_at
       await admin
         .from("integrations")
-        .update({ last_synced_at: new Date().toISOString() })
+        .update({ last_synced_at: new Date().toISOString(), sync_cursor: GITHUB_SYNC_VERSION })
         .eq("id", integration.id);
     }
 
-    return NextResponse.json({
-      success: true,
-      event: eventType,
-      processed: processedCount,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (err: any) {
+    return NextResponse.json({ success: true, event: eventType, processed });
+  } catch (err) {
     console.error("GitHub webhook error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -1,91 +1,64 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { HttpError, audit, dbError, handle, requireUser } from "@/lib/api/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function POST(
-  request: Request,
-  { params }: { params: { token: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+export const dynamic = "force-dynamic";
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function POST(_request: Request, { params }: { params: { token: string } }) {
+  return handle(async () => {
+    const user = await requireUser();
+    if (!/^[0-9a-f-]{36}$/i.test(params.token)) throw new HttpError(404, "Invite link is invalid or has expired.");
+    const admin = createAdminClient();
 
-    const { data: invite } = await supabase
+    const { data: invite, error } = await admin
       .from("memberships")
-      .select("id, workspace_id, role")
+      .select("id, workspace_id, role, invitation_expires_at")
       .eq("invitation_token", params.token)
       .eq("invitation_state", "pending")
       .is("user_id", null)
-      .gt("invitation_expires_at", new Date().toISOString())
       .maybeSingle();
-
-    if (!invite) {
-      return NextResponse.json(
-        { error: "Invite link is invalid or has expired" },
-        { status: 404 }
-      );
+    if (error) throw dbError(error);
+    if (!invite || (invite.invitation_expires_at && Date.parse(invite.invitation_expires_at) < Date.now())) {
+      throw new HttpError(404, "Invite link is invalid or has expired.");
     }
 
-    // Already a member? Make accepting idempotent.
-    const { data: existing } = await supabase
+    const { data: existing } = await admin
       .from("memberships")
       .select("id")
       .eq("workspace_id", invite.workspace_id)
       .eq("user_id", user.id)
-      .eq("invitation_state", "accepted")
       .maybeSingle();
-
     if (existing) {
-      return NextResponse.json({
-        success: true,
-        workspaceId: invite.workspace_id,
-        alreadyJoined: true,
-      });
+      return NextResponse.json({ success: true, workspaceId: invite.workspace_id, alreadyJoined: true });
     }
 
-    const { data: updated, error: updateError } = await supabase
+    // Conditional update so two people can't claim the same invite
+    const now = new Date().toISOString();
+    const { data: claimed, error: claimError } = await admin
       .from("memberships")
       .update({
         user_id: user.id,
         invitation_state: "accepted",
-        joined_at: new Date().toISOString(),
+        invitation_token: null,
+        joined_at: now,
+        consent_given_at: now,
       })
       .eq("id", invite.id)
-      .select()
-      .single();
+      .eq("invitation_state", "pending")
+      .is("user_id", null)
+      .select("id");
+    if (claimError) throw dbError(claimError);
+    if (!claimed || claimed.length === 0) throw new HttpError(409, "This invite was just used by someone else.");
 
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
+    await audit(admin, {
+      actorId: user.id,
       workspaceId: invite.workspace_id,
-      alreadyJoined: false,
+      action: "invite.accepted",
+      objectType: "membership",
+      objectId: invite.id,
+      newValue: { role: invite.role },
     });
-  } catch (err) {
-    console.error("API error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+
+    return NextResponse.json({ success: true, workspaceId: invite.workspace_id, alreadyJoined: false });
+  });
 }

@@ -1,89 +1,51 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { z } from "zod";
+import { HttpError, audit, dbError, handle, readJson, requireMember } from "@/lib/api/auth";
+import { inviteOrigin } from "@/lib/invites/url";
 
-const INVITE_TTL_HOURS = 24;
+export const dynamic = "force-dynamic";
 
-export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+const INVITE_TTL_DAYS = 7;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+const bodySchema = z.object({
+  role: z.enum(["member", "reviewer"]).default("member"),
+});
 
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("role")
-      .eq("workspace_id", params.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!membership || membership.role !== "leader") {
-      return NextResponse.json({ error: "Forbidden: Leader only" }, { status: 403 });
-    }
-
-    const body = await request.json();
-    const { role } = body as { role?: string };
-
-    const validRoles = ["member", "reviewer"];
-    if (!role || !validRoles.includes(role)) {
-      return NextResponse.json({ error: "Role must be member or reviewer" }, { status: 400 });
-    }
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  return handle(async () => {
+    const { admin, user } = await requireMember(params.id, { leader: true });
+    const { role } = await readJson(request, bodySchema);
+    const base = inviteOrigin(request.url, process.env.NEXT_PUBLIC_APP_URL, process.env.NODE_ENV === "production");
+    if (!base) throw new HttpError(503, "Set NEXT_PUBLIC_APP_URL to your public HTTPS site URL before creating invites.");
 
     const token = randomUUID();
-    const expiresAt = new Date(Date.now() + INVITE_TTL_HOURS * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: invite, error: insertError } = await supabase
+    const { data, error } = await admin
       .from("memberships")
       .insert({
         workspace_id: params.id,
-        role,
         user_id: null,
+        role,
         invitation_state: "pending",
         invitation_token: token,
-        invitation_expires_at: expiresAt.toISOString(),
+        invitation_expires_at: expiresAt,
         joined_at: null,
       })
-      .select()
+      .select("id")
       .single();
+    if (error) throw dbError(error);
 
-    if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
-    }
+    await audit(admin, {
+      actorId: user.id,
+      workspaceId: params.id,
+      action: "invite.created",
+      objectType: "membership",
+      objectId: data.id,
+      newValue: { role, expiresAt },
+    });
 
-    const origin = new URL(request.url).origin;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
-    const inviteUrl = `${appUrl}/invite/${token}`;
-
-    return NextResponse.json(
-      { inviteUrl, expiresAt: expiresAt.toISOString() },
-      { status: 201 }
-    );
-  } catch (err) {
-    console.error("API error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+    return NextResponse.json({ inviteUrl: `${base}/invite/${token}`, expiresAt, role }, { status: 201 });
+  });
 }

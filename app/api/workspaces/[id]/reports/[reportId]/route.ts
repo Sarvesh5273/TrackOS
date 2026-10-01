@@ -1,137 +1,95 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { z } from "zod";
+import { HttpError, audit, dbError, handle, isUuid, readJson, requireMember } from "@/lib/api/auth";
+import { verifySeal } from "@/lib/reports/seal";
+import type { AdminClient } from "@/lib/supabase/admin";
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string; reportId: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+export const dynamic = "force-dynamic";
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+type Params = { params: { id: string; reportId: string } };
 
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("role")
-      .eq("workspace_id", params.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!membership) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const { data: report, error: reportError } = await supabase
-      .from("reports")
-      .select("*")
-      .eq("id", params.reportId)
-      .eq("workspace_id", params.id)
-      .maybeSingle();
-
-    if (reportError || !report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ report });
-  } catch (err: any) {
-    console.error("GET report error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+async function loadReport(admin: AdminClient, workspaceId: string, reportId: string) {
+  if (!isUuid(reportId)) throw new HttpError(404, "Report not found.");
+  const { data, error } = await admin
+    .from("reports")
+    .select("*")
+    .eq("id", reportId)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+  if (error) throw dbError(error);
+  if (!data) throw new HttpError(404, "Report not found.");
+  return data as Record<string, any>;
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string; reportId: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: "", ...options });
-          },
-        },
-      }
-    );
+export async function GET(_request: Request, { params }: Params) {
+  return handle(async () => {
+    const { admin } = await requireMember(params.id);
+    const report = await loadReport(admin, params.id, params.reportId);
+    const seal = report.status === "published" ? verifySeal(report as any).status : null;
+    return NextResponse.json({ report, seal });
+  });
+}
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const patchSchema = z.object({
+  summary: z.string().max(3000, "Keep the summary under 3000 characters").nullable(),
+  aiAssisted: z.boolean().default(false),
+});
+
+/** Leader edits the project summary shown on the public page (before publishing). */
+export async function PATCH(request: Request, { params }: Params) {
+  return handle(async () => {
+    const { admin, user } = await requireMember(params.id, { leader: true });
+    const report = await loadReport(admin, params.id, params.reportId);
+    if (report.status !== "provisional") throw new HttpError(409, "Published reports can't be edited.");
+    const input = await readJson(request, patchSchema);
+
+    const text = input.summary?.trim() || "";
+    const scoringLogic = {
+      ...(report.scoring_logic || {}),
+      summary: text
+        ? { text, aiAssisted: input.aiAssisted, updatedAt: new Date().toISOString(), updatedBy: user.id }
+        : null,
+    };
+
+    const { data, error } = await admin
+      .from("reports")
+      .update({ scoring_logic: scoringLogic })
+      .eq("id", report.id)
+      .select()
+      .single();
+    if (error) throw dbError(error);
+
+    return NextResponse.json({ report: data });
+  });
+}
+
+/** Only provisional reports can be deleted; published ones are permanent. */
+export async function DELETE(_request: Request, { params }: Params) {
+  return handle(async () => {
+    const { admin, user } = await requireMember(params.id, { leader: true });
+    const report = await loadReport(admin, params.id, params.reportId);
+    if (report.status === "published") {
+      throw new HttpError(409, "Published reports can't be deleted. Generate and publish a new version instead.");
     }
 
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("role")
-      .eq("workspace_id", params.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!membership || membership.role !== "leader") {
-      return NextResponse.json({ error: "Forbidden: Leader only" }, { status: 403 });
-    }
-
-    const admin = createAdminClient();
-
-    // First unlink any reports referencing this report as previous_version_id
     await admin
       .from("reports")
-      .update({ previous_version_id: null })
-      .eq("previous_version_id", params.reportId);
+      .update({ previous_version_id: report.previous_version_id || null })
+      .eq("workspace_id", params.id)
+      .eq("previous_version_id", report.id);
 
-    // Delete the report
-    const { error: deleteError } = await admin
-      .from("reports")
-      .delete()
-      .eq("id", params.reportId)
-      .eq("workspace_id", params.id);
+    const { error } = await admin.from("reports").delete().eq("id", report.id).eq("workspace_id", params.id);
+    if (error) throw dbError(error);
 
-    if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
-    }
-
-    // Log audit event
-    await admin.from("audit_events").insert({
-      actor_id: user.id,
-      workspace_id: params.id,
+    await audit(admin, {
+      actorId: user.id,
+      workspaceId: params.id,
       action: "report.deleted",
-      object_type: "report",
-      object_id: params.reportId,
+      objectType: "report",
+      objectId: report.id,
+      previousValue: { version: report.version },
     });
 
-    return NextResponse.json({ success: true, message: "Report deleted successfully" });
-  } catch (err: any) {
-    console.error("DELETE report error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+    return NextResponse.json({ success: true });
+  });
 }
